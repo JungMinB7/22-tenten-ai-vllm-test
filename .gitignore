@@ -1,3 +1,5 @@
 .venv
 .22-tenten-ai
 .env
+__pycache__/
+api/endpoints/__pycache__/
