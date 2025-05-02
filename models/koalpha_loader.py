@@ -5,7 +5,7 @@ import os, time
 class KoalphaLoader:
     def __init__(self):
         load_dotenv()
-        self.url = f"{os.getenv('NGROK_URL')}/v1/chat/completions" #FastAPI와 Colab에서 열은 ngrok과 충돌나지 않게 변수명 변경
+        self.url = f"{os.getenv('MODEL_NGROK_URL')}/v1/chat/completions" #FastAPI와 Colab에서 열은 ngrok과 충돌나지 않게 변수명 변경
         self.headers = {
                             "Content-Type": "application/json",
                             "Authorization": "Bearer dummy-key"  # dummy-key: 아무거나 넣어도 됨
