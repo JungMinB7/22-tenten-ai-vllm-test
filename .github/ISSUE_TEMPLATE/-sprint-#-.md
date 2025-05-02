@@ -3,7 +3,7 @@ name: "[Sprint #]"
 about: 스프린트 백로그 템플릿
 title: ''
 labels: 스프린트-백로그
-assignees: 1026hz, kaeul1020, WooSungChoi99
+assignees: kaeul1020, WooSungChoi99
 
 ---
 
