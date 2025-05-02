@@ -1,21 +1,6 @@
 from fastapi import HTTPException
-from pydantic import BaseModel
-from typing import List
 from services.bot_chats_service import BotChatsService
-
-class UserInfo(BaseModel):
-    nickname: str
-    class_name: str
-
-class Message(BaseModel):
-    id: int
-    user: UserInfo
-    created_at: str
-    content: str
-
-class BotChatsRequest(BaseModel):
-    chat_room_id: int
-    messages: List[Message]
+from schemas.bot_chats_schema import BotChatsRequest
 
 class BotChatsController:
     def __init__(self):
