@@ -5,6 +5,7 @@ from api.endpoints.controllers.bot_comments_controller import BotCommentsControl
 router = APIRouter()
 controller = BotCommentsController()
 
+# 엔드포인트 예시
 @router.post("/")
 async def create_bot_comment(request: BotCommentsRequest):
     """
