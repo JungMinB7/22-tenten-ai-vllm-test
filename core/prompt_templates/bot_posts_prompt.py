@@ -25,7 +25,7 @@ class BotPostsPrompt:
          # UTC → KST 변환
         tz = pytz.timezone("Asia/Seoul")
         times_kst = [
-            datetime.strptime(p["created_at"], "%Y-%m-%dT%H:%M:%S.%fZ")
+            datetime.strptime(p.created_at, "%Y-%m-%dT%H:%M:%S.%fZ") #여기도 post가 class라서 바꿔줌.
                     .replace(tzinfo=pytz.utc)
                     .astimezone(tz)
             for p in posts
@@ -126,9 +126,10 @@ class BotPostsPrompt:
 
         # user message 추가
         for post in posts:
-            nickname = post["user"]["nickname"]
-            class_name = post["user"]["class_name"]
-            content = post["content"]
+            # Post가 class라서 바꿔줌
+            nickname = post.user.nickname
+            class_name = post.user.class_name
+            content = post.content
             
             messages.append({
                 "role": "user",
