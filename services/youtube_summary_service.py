@@ -1,21 +1,22 @@
-from typing import Dict, Any, Optional
+from typing import Optional
 import logging
 import asyncio
 from youtube_transcript_api import YouTubeTranscriptApi
 from urllib.parse import urlparse, parse_qs
+from schemas.youtube_summary_schema import YouTubeSummaryResponse
 
 class YouTubeSummaryService:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         self.transcript_api = YouTubeTranscriptApi()
 
-    async def create_summary(self, url: str) -> dict:
+    async def create_summary(self, url: str) -> YouTubeSummaryResponse:
         """
         YouTube 영상의 자막을 추출하고 요약을 생성하는 서비스
         Args:
             url: YouTube 영상 URL
         Returns:
-            생성된 요약 정보를 담은 딕셔너리
+            생성된 요약 정보를 담은 YouTubeSummaryResponse 객체
         """
         try:
             # URL에서 video_id 추출
@@ -29,15 +30,11 @@ class YouTubeSummaryService:
             
             # TODO: LLM을 통한 요약 생성 로직 구현
             
-            return {
-                "status": "success",
-                "message": "Transcript extracted successfully",
-                "data": {
-                    "video_id": video_id,
-                    "transcript": transcript_text,
-                    # TODO: summary 필드는 LLM 요약 후 추가
-                }
-            }
+            return YouTubeSummaryResponse(
+                video_id=video_id,
+                transcript=transcript_text,
+                summary=None  # TODO: LLM 요약 후 추가
+            )
         except Exception as e:
             self.logger.error(f"Error in create_summary: {str(e)}")
             raise e
