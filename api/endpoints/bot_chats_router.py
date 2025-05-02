@@ -5,6 +5,7 @@ from api.endpoints.controllers.bot_chats_controller import BotChatsController, B
 router = APIRouter()
 controller = BotChatsController()
 
+# 엔드포인트 예시
 @router.post("/")
 async def create_bot_chat(request: BotChatsRequest):
     """
