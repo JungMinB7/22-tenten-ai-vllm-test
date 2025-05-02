@@ -5,7 +5,7 @@ import os, time
 class KoalphaLoader:
     def __init__(self):
         load_dotenv()
-        self.url = f"{os.getenv('NGROK_URL')}/v1/chat/completions"
+        self.url = f"{os.getenv('MODEL_NGROK_URL')}/v1/chat/completions" #FastAPI와 Colab에서 열은 ngrok과 충돌나지 않게 변수명 변경
         self.headers = {
                             "Content-Type": "application/json",
                             "Authorization": "Bearer dummy-key"  # dummy-key: 아무거나 넣어도 됨
@@ -38,10 +38,27 @@ class KoalphaLoader:
         end_time = time.time()
         print(f"response time : {(end_time - start_time):.3f}")
 
-        try : 
-            return {"status_code":response.status_code, "content":response.json()["choices"][0]["message"]["content"]}
-        except:
-           return {"status_code":response.status_code, "content":str(response.reason)} 
+       # 에러 상태(200 이외)는 세부 정보까지 모두 리턴
+        if response.status_code != 200:
+            # 가능하면 JSON으로도, 아니면 텍스트 그대로
+            try:
+                error_body = response.json()
+            except ValueError:
+                error_body = response.text
+            return {
+                "status_code": response.status_code,
+                "url": response.url,
+                "headers": dict(response.headers),
+                "error": error_body
+            }
+        
+        # 정상 응답 파싱
+        body = response.json()
+        return {
+            "status_code": response.status_code,
+            "url": response.url,
+            "content": body["choices"][0]["message"]["content"]
+        }
     
 '''
 KoalphaLoader 클래스 사용 방법 예시
