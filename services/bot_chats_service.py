@@ -1,6 +1,6 @@
 from typing import List
 import logging
-from api.endpoints.controllers.bot_chats_controller import Message
+from schemas.bot_chats_schema import Message
 
 class BotChatsService:
     def __init__(self):

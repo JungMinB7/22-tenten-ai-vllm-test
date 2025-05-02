@@ -1,6 +1,6 @@
 from typing import List
 import logging
-from api.endpoints.controllers.bot_comments_controller import Post, Comment
+from schemas.bot_comments_schema import Post, Comment
 
 class BotCommentsService:
     def __init__(self):

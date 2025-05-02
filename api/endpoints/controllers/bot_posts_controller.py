@@ -1,20 +1,6 @@
 from fastapi import HTTPException
-from pydantic import BaseModel
-from typing import List, Dict, Any
 from services.bot_posts_service import BotPostsService
-
-class UserInfo(BaseModel):
-    nickname: str
-    class_name: str
-
-class Post(BaseModel):
-    id: int
-    user: UserInfo
-    created_at: str
-    content: str
-
-class BotPostsRequest(BaseModel):
-    posts: List[Post]
+from schemas.bot_posts_schema import BotPostsRequest
 
 class BotPostsController:
     def __init__(self):

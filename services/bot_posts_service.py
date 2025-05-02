@@ -1,6 +1,6 @@
 from typing import List
 import logging
-from api.endpoints.controllers.bot_posts_controller import Post
+from schemas.bot_posts_schema import Post
 
 class BotPostsService:
     def __init__(self):
@@ -41,6 +41,6 @@ class BotPostsService:
         """
         return {
             "total_posts": len(posts),
-            "latest_post_time": posts[-1].created_at,
+            "latest_post_time": posts[-1].created_at if posts else None,
             "users": [post.user.nickname for post in posts]
         }
