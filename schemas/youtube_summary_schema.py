@@ -1,9 +1,12 @@
 from pydantic import BaseModel, HttpUrl
+from typing import Optional
 
 class YouTubeSummaryRequest(BaseModel):
     url: HttpUrl
 
+class YouTubeSummaryData(BaseModel):
+    summary: Optional[str] = None
+
 class YouTubeSummaryResponse(BaseModel):
-    video_id: str
-    transcript: str
-    summary: str | None = None 
+    message: str
+    data: YouTubeSummaryData 
