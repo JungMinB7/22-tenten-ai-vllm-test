@@ -4,8 +4,8 @@ import os, time
 
 class KoalphaLoader:
     def __init__(self):
-        load_dotenv()
-        self.url = f"{os.getenv('MODEL_NGROK_URL')}/v1/chat/completions" #FastAPI와 Colab에서 열은 ngrok과 충돌나지 않게 변수명 변경
+        # load_dotenv()
+        # self.url = f"{os.getenv('MODEL_NGROK_URL')}/v1/chat/completions" #FastAPI와 Colab에서 열은 ngrok과 충돌나지 않게 변수명 변경
         self.headers = {
                             "Content-Type": "application/json",
                             "Authorization": "Bearer dummy-key"  # dummy-key: 아무거나 넣어도 됨
@@ -31,10 +31,17 @@ class KoalphaLoader:
                         {"role": "user", "content": "[Bob] 좀비 나오는 거 아냐? 난 좀비 별로인데..."},
                     ]
         '''
+        # 요청 시마다 .env를 로드하여 최신 URL 반영
+        load_dotenv(override=True)
+        base_url = os.getenv('MODEL_NGROK_URL')
+
         self.data["messages"] = messages
 
+        # 여기서 URL을 로컬 변수로만 사용
+        url = f"{base_url}/v1/chat/completions"
+
         start_time = time.time()
-        response = requests.post(self.url, headers=self.headers, json=self.data)
+        response = requests.post(url, headers=self.headers, json=self.data)
         end_time = time.time()
         print(f"response time : {(end_time - start_time):.3f}")
 
