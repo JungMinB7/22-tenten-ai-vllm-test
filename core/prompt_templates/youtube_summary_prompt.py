@@ -2,6 +2,7 @@ class YoutubeSummaryPrompt:
     def create_user_prompt(self, youtube_transcript: str) -> str:
         return f"""아래 텍스트를 한국어로 3개의 핵심 포인트로 요약해주세요.
                             각 포인트는 '•' 기호로 시작하고, 한 문장으로 작성해주세요.
+                            반드시 답변은 요약에 해당하는 부분만 작성해주세요.
 
                             텍스트:
                             {youtube_transcript}
