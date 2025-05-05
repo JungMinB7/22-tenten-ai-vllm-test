@@ -1,30 +1,39 @@
-from fastapi import HTTPException
+from fastapi import status
+from fastapi.responses import JSONResponse
 from services.bot_posts_service import BotPostsService
-from schemas.bot_posts_schema import BotPostsRequest
+from schemas.bot_posts_schema import BotPostsRequest, BotPostsResponse
+from utils.error_handler import InvalidQueryParameterError, InternalServerError
 
 class BotPostsController:
     def __init__(self):
         self.service = BotPostsService()
 
-    async def create_bot_post(self, request: BotPostsRequest):
+    async def create_bot_post(self, request: BotPostsRequest) -> BotPostsResponse:
+        """
+        BotPostsRequest를 받아 소셜봇 게시글 생성 서비스 호출 후,
+        BotPostsResponse 형태로 반환.
+        """
         try:
             # 서비스 계층 호출
-            result = await self.service.generate_bot_post(request.posts)
-            
-            # loader가 반환한 status_code 검사
-            if isinstance(result, dict) and result.get("status_code") != 200:
-                # 실제 HTTP 에러로 변환해서 클라이언트에 전달
-                raise HTTPException(
-                    status_code=result["status_code"],
-                    detail=result.get("content", "Unknown error")
-                )
+            bot_response = await self.service.generate_bot_post(request)
+            return bot_response
 
-            # 3) 정상적인 경우, 실제 컨텐츠만 리턴
-            return {"content": result["content"]}
+        except InvalidQueryParameterError as e:
+            # 400 Bad Request: posts 개수 검증 실패
+            return JSONResponse(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                content={
+                    "error": "invalid_query_parameter",
+                    "message": "전달받은 게시글이 5개 미만입니다."
+                }
+            )
 
-        except HTTPException:
-            # 위에서 던진 HTTPException은 그대로 다시 던집니다
-            raise
-        
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
+        except InternalServerError as e:
+            # 500 Internal Server Error: AI 서버 내부 오류
+            return JSONResponse(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                content={
+                    "error": "internal_server_error",
+                    "message": "AI 서버에 문제가 발생하였습니다."
+                }
+            )
