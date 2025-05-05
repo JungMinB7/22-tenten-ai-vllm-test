@@ -1,3 +1,4 @@
+#### 400 ERROR ####
 # 잘못된 유튜브 URL 형식
 class InvalidYouTubeUrlError(Exception):
     pass
@@ -16,4 +17,21 @@ class VideoPrivateError(Exception):
 
 # 존재하지 않는 동영상인 경우
 class VideoNotFoundError(Exception):
+    pass
+
+
+class InvalidQueryParameterError(Exception):
+    """
+    요청 파라미터가 API 명세에 맞지 않을 때 발생합니다.
+    - 예: 전달받은 게시글이 5개 미만인 경우
+    """
+    pass
+
+
+#### 500 ERROR ####
+class InternalServerError(Exception):
+    """
+    서버 내부에서 예기치 못한 오류가 발생했을 때 사용합니다.
+    - 예: AI 모델 호출 실패, 로직 버그 등
+    """
     pass

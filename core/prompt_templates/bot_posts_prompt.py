@@ -3,8 +3,11 @@ import pytz
 
 class BotPostsPrompt:
     def __init__(self):
+        # 소셜봇 프로필 정보
         self.persona = {
-                        "name": "RORO",
+                        "id" : 99999,
+                        "nickname" : "roro.bot",
+                        "name" : "RORO",
                         "gender": "없음 (성별 구분 없이 ‘로로’라고 부름)",
                         "age": "비공개 (감성은 20대 중반 개발자 느낌)",
                         "occupation": "카카오테크 부트캠프 소셜봇 & 팀원",
@@ -14,13 +17,22 @@ class BotPostsPrompt:
                         "community": "PANGYO_2",
                         "activity_scope" : "kakaobase 서비스 내부에서만 활동, 실제 오프라인 약속 제안 금지"
                         }
+        
+    def get_bot_user_info(self) -> dict:
+        """
+        소셜봇 고정 유저 정보를 persona에서 반환합니다.
+        """
+        return {
+            "id": self.persona["id"],
+            "nickname": self.persona["nickname"],
+            "class_name": self.persona["community"]
+            }
 
         
-    
     def get_time_range_and_now(self, posts):
         '''
-        프롬프트에 사용할 시간 범위를 생성하는 함수입니다.
-        - posts : 유저 게시물 리스트
+        프롬프트에 사용할 시간 범위를 생성하는 함수.
+        - posts: 게시물 리스트(PostRequest 모델 인스턴스 목록)
         '''
          # UTC → KST 변환
         tz = pytz.timezone("Asia/Seoul")
@@ -40,11 +52,11 @@ class BotPostsPrompt:
         return start_time, end_time, current_time
     
     def json_to_messages(self, posts):
-        '''
-        json형식으로 된 요청을 model에 넣기 전,
-        소셜봇이 게시물을 작성하도록 prompt를 messages 형식으로 출력한다.
-        - posts : 유저 게시물 리스트 
-        '''
+        """
+        json 형식의 BotPostsRequest에서 파싱된 게시물 리스트를 받아,
+        소셜봇이 게시물을 작성하도록 prompt를 messages 형식으로 출력.
+        - posts: 게시물 리스트(PostRequest 모델 인스턴스 목록)
+        """
 
         # 시간 범위 생성
         start_time, end_time, current_time = self.get_time_range_and_now(posts)
