@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from api.endpoints.youtube_summary_router import router as youtube_router
 from api.endpoints.bot_posts_router import router as bot_post_router
-from api.endpoints.bot_comments_router import router as bot_comment_router
+from api.endpoints.bot_recomments_router import router as bot_recomment_router
 from api.endpoints.bot_chats_router import router as bot_chat_router
 
 # FastAPI 애플리케이션 초기화
@@ -27,7 +27,7 @@ app.add_middleware(
 # 라우터 등록
 app.include_router(youtube_router, prefix="/posts/youtube", tags=["youtube"])
 app.include_router(bot_post_router, prefix="/posts/bot", tags=["bot-posts"])
-app.include_router(bot_comment_router, prefix="/recomments/bot", tags=["bot-recomments"])
+app.include_router(bot_recomment_router, prefix="/recomments/bot", tags=["bot-recomments"])
 app.include_router(bot_chat_router, prefix="/chats/bot", tags=["bot-chats"])
 
 # 서버 구동을 위한 설정

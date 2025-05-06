@@ -1,12 +1,12 @@
 from fastapi import HTTPException
-from services.bot_comments_service import BotCommentsService
-from schemas.bot_comments_schema import BotCommentsRequest
+from services.bot_recomments_service import BotRecommentsService
+from schemas.bot_recomments_schema import BotRecommentsRequest
 
-class BotCommentsController:
+class BotRecommentsController:
     def __init__(self):
-        self.service = BotCommentsService()
+        self.service = BotRecommentsService()
 
-    async def create_bot_comment(self, request: BotCommentsRequest):
+    async def create_bot_comment(self, request: BotRecommentsRequest):
         try:
             # 서비스 계층 호출
             result = await self.service.generate_bot_comment(request.post, request.comments)
