@@ -27,6 +27,12 @@ class InvalidQueryParameterError(Exception):
     """
     pass
 
+class InvalidFormatError(Exception):
+    """
+    요청 필드의 형식이 올바르지 않을 때 발생합니다.
+    - 예: 데이터 타입 불일치, 포맷 규칙 위반 등
+    """
+    pass
 
 #### 500 ERROR ####
 class InternalServerError(Exception):
