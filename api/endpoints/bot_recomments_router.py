@@ -7,7 +7,7 @@ controller = BotCommentsController()
 
 # 엔드포인트 예시
 @router.post("/")
-async def create_bot_comment(request: BotCommentsRequest):
+async def create_bot_recomment(request: BotCommentsRequest):
     """
     소셜봇이 새로운 댓글을 생성하는 엔드포인트
     """
