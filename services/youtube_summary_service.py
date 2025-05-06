@@ -112,19 +112,70 @@ class YouTubeSummaryService:
         """
         return ' '.join([snippet.text for snippet in transcript])
 
+    def _split_transcript(self, transcript_text: str, chunk_size: int = 6500, overlap: int = 500) -> list:
+        """
+        긴 자막 텍스트를 chunk_size만큼 분할, 각 청크는 overlap만큼 겹침
+        Returns: 청크 리스트
+        """
+        chunks = []
+        start = 0
+        length = len(transcript_text)
+        while start < length:
+            end = min(start + chunk_size, length)
+            chunk = transcript_text[start:end]
+            chunks.append(chunk)
+            if end == length:
+                break
+            start = end - overlap  # 겹침 적용
+        return chunks
+
+    def _get_chunk_position(self, idx: int, total: int) -> str:
+        """청크의 위치(시작/중간/끝) 문자열 반환"""
+        if idx == 0:
+            return "전체 텍스트의 시작 부분"
+        elif idx == total - 1:
+            return "전체 텍스트의 끝 부분"
+        else:
+            return "전체 텍스트의 중간 부분"
+
     def _create_summary(self, transcript_text: str) -> str:
         """
-        LLM(Koalpha)을 호출해 요약 텍스트를 생성
+        긴 자막도 청크로 분할하여 순차적으로 요약, 마지막에 통합 요약
         Args:
             transcript_text: 자막 텍스트
         Returns:
             요약 텍스트
         """
-        prompt = YoutubeSummaryPrompt()
-        messages = prompt.create_messages(transcript_text)
-        koalpha = KoalphaLoader()
-        response = koalpha.get_response(messages)
-        return response.get('content', None)
+        chunk_size = 6500
+        overlap = 500
+        chunks = self._split_transcript(transcript_text, chunk_size, overlap)
+        chunk_summaries = []
+        prev_summary = None
+
+        for idx, chunk in enumerate(chunks):
+            position = self._get_chunk_position(idx, len(chunks))
+            prompt = YoutubeSummaryPrompt()
+            messages = prompt.create_messages(chunk, position, prev_summary)
+            koalpha = KoalphaLoader()
+            response = koalpha.get_response(messages)
+            summary = response.get('content', None)
+            chunk_summaries.append(summary)
+            prev_summary = summary
+
+        # 모든 청크 요약을 다시 통합 요약
+        if len(chunk_summaries) == 1:
+            return chunk_summaries[0]
+        else:
+            # 통합 프롬프트
+            system_msg = "너는 아주 친절한 AI 어시스턴트야. 아래 여러 부분 요약을 참고해서 전체 텍스트의 3가지 핵심 포인트를 한국어로 요약해줘."
+            user_msg = "\n\n".join([f"청크 {i+1} 요약: {s}" for i, s in enumerate(chunk_summaries)])
+            messages = [
+                {"role": "system", "content": system_msg},
+                {"role": "user", "content": user_msg}
+            ]
+            koalpha = KoalphaLoader()
+            response = koalpha.get_response(messages)
+            return response.get('content', None)
     
 # #파일을 직접 실행할 때 사용
 # async def main():
