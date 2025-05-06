@@ -29,48 +29,51 @@ class BotRecommentsPrompt:
             }
 
         
-    def get_time_range_and_now(self, post, comments):
+    def get_time_range_and_now(self, post, comment, recomments):
         """
         프롬프트에 사용할 시간 범위를 생성합니다.
-        - post: 단일 PostRequest 객체
-        - comments: 댓글 목록(CommentRequest 모델 인스턴스 목록)
+        - post: PostRequest 객체
+        - comment: CommentRequest 객체
+        - recomments: 대댓글 리스트
         """
-
-        # UTC → KST 변환
         tz = pytz.timezone("Asia/Seoul")
-
-        # 게시물 시간
-        times_kst = [
+        times_kst = []
+        # 게시물 작성 시간
+        times_kst.append(
             datetime.strptime(post.created_at, "%Y-%m-%dT%H:%M:%S.%fZ")
                     .replace(tzinfo=pytz.utc)
                     .astimezone(tz)
-        ]
-        
-        # 댓글들 시간
-        for c in comments:
+        )
+        # 댓글 작성 시간
+        times_kst.append(
+            datetime.strptime(comment.created_at, "%Y-%m-%dT%H:%M:%S.%fZ")
+                    .replace(tzinfo=pytz.utc)
+                    .astimezone(tz)
+        )
+        # 대댓글들 작성 시간
+        for r in recomments or []:
             times_kst.append(
-                datetime.strptime(c.created_at, "%Y-%m-%dT%H:%M:%S.%fZ")
+                datetime.strptime(r.created_at, "%Y-%m-%dT%H:%M:%S.%fZ")
                         .replace(tzinfo=pytz.utc)
                         .astimezone(tz)
             )
-        
-        # 예: 2025-04-27 (Sun) 10:30 AM
         fmt = "%Y-%m-%d (%a) %-I:%M %p"
         start_time = min(times_kst).strftime(fmt)
-        end_time   = max(times_kst).strftime(fmt)
+        end_time = max(times_kst).strftime(fmt)
         current_time = datetime.now(tz).strftime(fmt)
-
         return start_time, end_time, current_time
     
-    def json_to_messages(self, posts):
+    def json_to_messages(self, request):
         """
-        json 형식의 BotPostsRequest에서 파싱된 게시물 리스트를 받아,
-        소셜봇이 게시물을 작성하도록 prompt를 messages 형식으로 출력.
-        - posts: 게시물 리스트(PostRequest 모델 인스턴스 목록)
+        BotRecommentsRequest를 받아서 messages 리스트로 변환
+        - request: BotRecommentsRequest 모델 인스턴스
         """
+        post = request.post
+        comment = request.comment
+        recomments = request.comment.recomments
 
         # 시간 범위 생성
-        start_time, end_time, current_time = self.get_time_range_and_now(posts)
+        start_time, end_time, current_time = self.get_time_range_and_now(post, comment, recomments)
 
         #system message 추가
         messages = [
@@ -122,7 +125,7 @@ class BotRecommentsPrompt:
                                         ---
 
                                         ## 생각 단계  
-                                        1) 최근 게시물의 분위기와 공통된 주제 파악  
+                                        1) 게시물과 댓글, 대댓글의 분위기와 공통된 주제 파악  
                                         2) 페르소나와 시간 컨텍스트를 반영해 어떤 메시지를 쓸지 구상  
                                         3) 최종 본문 텍스트(2~3문장)를 작성  
 
@@ -141,73 +144,26 @@ class BotRecommentsPrompt:
                                         ---
 
                                         ## 출력 요청  
-                                        위 “생각 단계”를 머릿속으로 순서대로 실행한 뒤, 출력 규칙을 100% 준수하여 순수 본문 텍스트(2~3문장)로 어울리는 신규 게시물을 작성해 주세요.
+                                        위 “생각 단계”를 머릿속으로 순서대로 실행한 뒤, 출력 규칙을 100% 준수하여 순수 본문 텍스트(2~3문장)로 어울리는 신규 대댓글을 작성해 주세요.
                                         """.strip()
                         }
                     ]
 
 
-        # user message 추가
-        for post in posts:
-            # Post가 class라서 바꿔줌
-            nickname = post.user.nickname
-            class_name = post.user.class_name
-            content = post.content
-            
-            messages.append({
-                "role": "user",
-                "content": f"[{nickname} from {class_name}] {content}"
-            })
-       
+        # user context: 게시글, 원댓글, 기존 대댓글
+        messages.append({
+            "role": "user",
+            "content": f"게시물: {post.content}"
+        })
+        messages.append({
+            "role": "user",
+            "content": f"원댓글: {comment.content}"
+        })
+        if recomments:
+            for r in recomments:
+                messages.append({
+                    "role": "user",
+                    "content": f"[{r.user.nickname} from {r.user.class_name}] {r.content}"
+                })
+
         return messages
-
-
-'''
-BotPostsPrompt 클래스 사용 방법 예시
-'''
-
-'''
-from models.koalpha_loader import KoalphaLoader
-
-# 게시물 데이터
-posts = [
-    {
-        "id": 1110,
-        "user": {"nickname": "hazel.kim", "class_name": "PANGYO_2"},
-        "created_at": "2025-04-27T10:30:32.311141Z",
-        "content": "좋은아침입니당"
-    },
-    {
-        "id": 1111,
-        "user": {"nickname": "rick.lee", "class_name": "PANGYO_2"},
-        "created_at": "2025-04-27T10:41:32.311141Z",
-        "content": "좋은아침입니다~"
-    },
-    {
-        "id": 1112,
-        "user": {"nickname": "marcello.lee", "class_name": "PANGYO_2"},
-        "created_at": "2025-04-27T11:40:32.311141Z",
-        "content": "혹시 커피 사러 같이 나가실 분 계신가요"
-    },
-    {
-        "id": 1113,
-        "user": {"nickname": "dobby.choi", "class_name": "PANGYO_2"},
-        "created_at": "2025-04-27T11:41:32.311141Z",
-        "content": "여러분 간식 리필됐대요"
-    },
-    {
-        "id": 1114,
-        "user": {"nickname": "daisy.kim", "class_name": "PANGYO_2"},
-        "created_at": "2025-04-27T11:43:32.311141Z",
-        "content": "아 진쨔?"
-    }
-]
-
-bot_post_prompt = BotPostsPrompt()
-messages = bot_post_prompt.json_to_messages(posts)
-
-print(messages)
-
-koalpha=KoalphaLoader()
-print(koalpha.get_response(messages))
-'''
