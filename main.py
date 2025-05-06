@@ -27,7 +27,7 @@ app.add_middleware(
 # 라우터 등록
 app.include_router(youtube_router, prefix="/posts/youtube", tags=["youtube"])
 app.include_router(bot_post_router, prefix="/posts/bot", tags=["bot-posts"])
-app.include_router(bot_comment_router, prefix="/comments/bot", tags=["bot-comments"])
+app.include_router(bot_comment_router, prefix="/recomments/bot", tags=["bot-recomments"])
 app.include_router(bot_chat_router, prefix="/chats/bot", tags=["bot-chats"])
 
 # 서버 구동을 위한 설정
