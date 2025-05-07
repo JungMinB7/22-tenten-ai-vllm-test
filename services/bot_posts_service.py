@@ -1,4 +1,5 @@
 import logging
+import os
 from schemas.bot_posts_schema import BotPostsRequest, BotPostsResponse, BotPostResponseData, UserInfoResponse
 from core.prompt_templates.bot_posts_prompt import BotPostsPrompt
 from models.koalpha_loader import KoalphaLoader
@@ -30,7 +31,9 @@ class BotPostsService:
             bot_user = bot_post_prompt.get_bot_user_info()
             messages = bot_post_prompt.json_to_messages(request.posts)
 
-            koalpha=KoalphaLoader()
+            mode = os.environ.get("LLM_MODE", "colab")
+
+            koalpha = KoalphaLoader(mode=mode)
             model_response = koalpha.get_response(messages)
             content = model_response.get("content", "")
 

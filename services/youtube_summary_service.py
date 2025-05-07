@@ -15,6 +15,7 @@ from schemas.youtube_summary_schema import YouTubeSummaryData, YouTubeSummaryRes
 from core.prompt_templates.youtube_summary_prompt import YoutubeSummaryPrompt
 from models.koalpha_loader import KoalphaLoader
 from utils.error_handler import InvalidYouTubeUrlError, SubtitlesNotFoundError, UnsupportedSubtitleLanguageError, VideoPrivateError, VideoNotFoundError
+import os
 
 class YouTubeSummaryService:
     def __init__(self):
@@ -152,11 +153,13 @@ class YouTubeSummaryService:
         chunk_summaries = []
         prev_summary = None
 
+        mode = os.environ.get("LLM_MODE", "colab")
+
         for idx, chunk in enumerate(chunks):
             position = self._get_chunk_position(idx, len(chunks))
             prompt = YoutubeSummaryPrompt()
             messages = prompt.create_messages(chunk, position, prev_summary)
-            koalpha = KoalphaLoader()
+            koalpha = KoalphaLoader(mode=mode)
             response = koalpha.get_response(messages)
             summary = response.get('content', None)
             chunk_summaries.append(summary)
@@ -173,7 +176,7 @@ class YouTubeSummaryService:
                 {"role": "system", "content": system_msg},
                 {"role": "user", "content": user_msg}
             ]
-            koalpha = KoalphaLoader()
+            koalpha = KoalphaLoader(mode=mode)
             response = koalpha.get_response(messages)
             return response.get('content', None)
     
