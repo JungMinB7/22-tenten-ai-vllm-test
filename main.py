@@ -1,3 +1,5 @@
+import argparse
+import os
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -5,6 +7,17 @@ from api.endpoints.youtube_summary_router import router as youtube_router
 from api.endpoints.bot_posts_router import router as bot_post_router
 from api.endpoints.bot_recomments_router import router as bot_recomment_router
 from api.endpoints.bot_chats_router import router as bot_chat_router
+
+# CLI 인자 파싱 함수 추가
+def parse_args():
+    parser = argparse.ArgumentParser(description="텐텐 GPU 사용 모드 선택")
+    parser.add_argument(
+        "--mode",
+        choices=["colab", "gcp"],
+        default="colab",
+        help="LLM inference 모드 선택 (colab: Ngrok/Colab, gcp: GCP 서버 직접 추론)"
+    )
+    return parser.parse_args()
 
 # FastAPI 애플리케이션 초기화
 app = FastAPI(
@@ -38,6 +51,9 @@ app.include_router(bot_chat_router, prefix="/chats/bot", tags=["bot-chats"])
 
 # 서버 구동을 위한 설정
 if __name__ == "__main__":
+    args = parse_args()
+    os.environ["LLM_MODE"] = args.mode
+    print(f"실행 모드: {args.mode}")
     uvicorn.run(
         "main:app",
         host="0.0.0.0",

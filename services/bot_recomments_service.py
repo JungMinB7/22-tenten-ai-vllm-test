@@ -1,4 +1,5 @@
 import logging
+import os
 from pydantic import ValidationError
 from schemas.bot_recomments_schema import BotRecommentsRequest, BotRecommentsResponse, BotRecommentResponseData
 from schemas.bot_common_schema import UserInfoResponse
@@ -34,7 +35,9 @@ class BotRecommentsService:
             prompt = BotRecommentsPrompt()
             messages = prompt.json_to_messages(request)
 
-            koalpha = KoalphaLoader()
+            mode = os.environ.get("LLM_MODE", "colab")
+
+            koalpha = KoalphaLoader(mode=mode)
             model_response = koalpha.get_response(messages)
 
             content = model_response.get("content", "")

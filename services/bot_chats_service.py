@@ -1,6 +1,8 @@
 from typing import List
 import logging
 from schemas.bot_chats_schema import BotChatsRequest, BotChatsResponse, BotChatResponseData, UserInfoResponse
+import os
+from models.koalpha_loader import KoalphaLoader
 
 class BotChatsService:
     def __init__(self):
@@ -16,6 +18,9 @@ class BotChatsService:
             
             # TODO: 여기에 실제 AI 모델을 통한 채팅 메시지 생성 로직 구현
             # 현재는 임시 응답 반환
+            mode = os.environ.get("LLM_MODE", "colab")
+            
+            koalpha = KoalphaLoader(mode=mode)
             return {
                 "status": "success",
                 "message": "Bot chat message generated successfully",

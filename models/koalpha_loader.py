@@ -1,72 +1,83 @@
 import requests
-from dotenv import load_dotenv
 import os, time
+from dotenv import load_dotenv
 
 class KoalphaLoader:
-    def __init__(self):
-        # load_dotenv()
-        # self.url = f"{os.getenv('MODEL_NGROK_URL')}/v1/chat/completions" #FastAPI와 Colab에서 열은 ngrok과 충돌나지 않게 변수명 변경
+    def __init__(self, mode="colab"):
+        self.mode = mode
+        # colab/ngrok API 요청에 필요한 헤더 및 데이터
         self.headers = {
-                            "Content-Type": "application/json",
-                            "Authorization": "Bearer dummy-key"  # dummy-key: 아무거나 넣어도 됨
-                        }
+            "Content-Type": "application/json",
+            "Authorization": "Bearer dummy-key"  
+        }
         self.data = {
-                        "model": "allganize/Llama-3-Alpha-Ko-8B-Instruct",
-                        "messages": [],
-                        "temperature": 0.7
-                    }
-    
+            "model": "allganize/Llama-3-Alpha-Ko-8B-Instruct",
+            "messages": [],
+            "temperature": 0.7
+        }
+        # GCP(vllm) 모드일 때만 vllm 엔진 초기화
+        if self.mode == "gcp":
+            from vllm import LLM
+            import torch
+            self.model_vllm = LLM(
+                model="allganize/Llama-3-Alpha-Ko-8B-Instruct",
+                dtype="auto", # 또는 torch.bfloat16, torch.float16 등. torch.bfloat16은 최신 GPU(Ampere 이상)에서만 지원됨.
+                trust_remote_code=True,
+                tensor_parallel_size=1
+            )
+
     def get_response(self, messages):
-        '''
-        messages 예시
-        messages = [
-                        {"role": "system", "content": "You are an AI assistant in a group chat. Let users talk, and only respond if your help seems needed. Users identify themselves using [Name]."},
-
-                        {"role": "user", "content": "[Alice] 이번 주말에 뭐하지? 너무 심심할 것 같아."},
-                        {"role": "user", "content": "[Bob] 나도. 그냥 넷플릭스나 볼까... 요즘 볼만한 거 뭐 있지?"},
-                        
-                        {"role": "assistant", "content": "혹시 영화 추천 원하시나요? 최근에 '죽지 않는 인간들의 밤'이 코믹하고 재미있어요!"},
-
-                        {"role": "user", "content": "[Alice] 오 그거 들어봤어! 그거 무서운 영화야?"},
-                        {"role": "user", "content": "[Bob] 좀비 나오는 거 아냐? 난 좀비 별로인데..."},
-                    ]
-        '''
-        # 요청 시마다 .env를 로드하여 최신 URL 반영
-        load_dotenv(override=True)
-        base_url = os.getenv('MODEL_NGROK_URL')
-
-        self.data["messages"] = messages
-
-        # 여기서 URL을 로컬 변수로만 사용
-        url = f"{base_url}/v1/chat/completions"
-
-        start_time = time.time()
-        response = requests.post(url, headers=self.headers, json=self.data)
-        end_time = time.time()
-        print(f"response time : {(end_time - start_time):.3f}")
-
-       # 에러 상태(200 이외)는 세부 정보까지 모두 리턴
-        if response.status_code != 200:
-            # 가능하면 JSON으로도, 아니면 텍스트 그대로
-            try:
-                error_body = response.json()
-            except ValueError:
-                error_body = response.text
+        if self.mode == "colab":
+            # Ngrok(Colab) API로 요청
+            load_dotenv(override=True)
+            base_url = os.getenv('MODEL_NGROK_URL')
+            self.data["messages"] = messages
+            url = f"{base_url}/v1/chat/completions"
+            start_time = time.time()
+            response = requests.post(url, headers=self.headers, json=self.data)
+            end_time = time.time()
+            print(f"response time : {(end_time - start_time):.3f}")
+            if response.status_code != 200:
+                try:
+                    error_body = response.json()
+                except ValueError:
+                    error_body = response.text
+                return {
+                    "status_code": response.status_code,
+                    "url": response.url,
+                    "headers": dict(response.headers),
+                    "error": error_body
+                }
+            body = response.json()
             return {
                 "status_code": response.status_code,
                 "url": response.url,
-                "headers": dict(response.headers),
-                "error": error_body
+                "content": body["choices"][0]["message"]["content"]
             }
-        
-        # 정상 응답 파싱
-        body = response.json()
-        return {
-            "status_code": response.status_code,
-            "url": response.url,
-            "content": body["choices"][0]["message"]["content"]
-        }
-    
+        elif self.mode == "gcp":
+            # vllm 엔진을 통한 직접 추론
+            prompt = self._messages_to_prompt(messages)
+            start_time = time.time()
+            outputs = self.model_vllm.generate(prompt)
+            end_time = time.time()
+            print(f"response time : {(end_time - start_time):.3f}")
+            content = outputs[0]  # vllm은 리스트[str] 반환
+            return {
+                "status_code": 200,
+                "url": "local_vllm",
+                "content": content
+            }
+
+    def _messages_to_prompt(self, messages):
+        # system/user 메시지 리스트를 하나의 프롬프트 문자열로 변환
+        prompt = ""
+        for msg in messages:
+            if msg["role"] == "system":
+                prompt += f"[System]\n{msg['content']}\n"
+            elif msg["role"] == "user":
+                prompt += f"[User]\n{msg['content']}\n"
+        return prompt
+
 '''
 KoalphaLoader 클래스 사용 방법 예시
 '''
