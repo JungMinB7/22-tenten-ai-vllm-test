@@ -13,16 +13,22 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# CORS 미들웨어 설정 (프론트엔드 연동 시 필요)
-"""
+# origins 설정
+origins = [
+    "http://www.kakaobase.com",
+    "https://www.kakaobase.com",
+    "http://localhost:8080",
+    "http://localhost:3000"
+]
+
+# CORS 미들웨어 설정
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # 실제 운영 환경에서는 구체적인 도메인으로 수정 필요
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-"""
 
 # 라우터 등록
 app.include_router(youtube_router, prefix="/posts/youtube", tags=["youtube"])
