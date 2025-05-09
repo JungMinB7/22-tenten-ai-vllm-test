@@ -4,8 +4,10 @@ from schemas.bot_recomments_schema import BotRecommentsRequest, BotRecommentsRes
 from utils.error_handler import InvalidQueryParameterError, InvalidFormatError, InternalServerError
 
 class BotRecommentsController:
-    def __init__(self):
-        self.service = BotRecommentsService()
+    def __init__(self, app):
+        # FastAPI app 인스턴스를 받아 서비스에 전달
+        self.app = app
+        self.service = BotRecommentsService(app)
 
     async def create_bot_recomments(self, request: BotRecommentsRequest) -> BotRecommentsResponse:
         try:

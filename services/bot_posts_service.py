@@ -6,8 +6,10 @@ from models.koalpha_loader import KoalphaLoader
 from utils.error_handler import InvalidQueryParameterError, InternalServerError
 
 class BotPostsService:
-    def __init__(self):
+    def __init__(self, app):
         self.logger = logging.getLogger(__name__)
+        # FastAPI app의 state에서 koalpha 싱글턴 인스턴스를 받아옴
+        self.koalpha = app.state.koalpha
 
     async def generate_bot_post(self, request: BotPostsRequest) -> BotPostsResponse:
         """
@@ -31,10 +33,7 @@ class BotPostsService:
             bot_user = bot_post_prompt.get_bot_user_info()
             messages = bot_post_prompt.json_to_messages(request.posts)
 
-            mode = os.environ.get("LLM_MODE", "colab")
-
-            koalpha = KoalphaLoader(mode=mode)
-            model_response = koalpha.get_response(messages)
+            model_response = self.koalpha.get_response(messages)
             content = model_response.get("content", "")
 
             # 응답 구조 생성

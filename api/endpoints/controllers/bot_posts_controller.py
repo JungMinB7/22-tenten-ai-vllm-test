@@ -5,8 +5,10 @@ from schemas.bot_posts_schema import BotPostsRequest, BotPostsResponse
 from utils.error_handler import InvalidQueryParameterError, InternalServerError
 
 class BotPostsController:
-    def __init__(self):
-        self.service = BotPostsService()
+    def __init__(self, app):
+        # FastAPI app 인스턴스를 받아 서비스에 전달
+        self.app = app
+        self.service = BotPostsService(app)
 
     async def create_bot_post(self, request: BotPostsRequest) -> BotPostsResponse:
         """

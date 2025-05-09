@@ -7,10 +7,11 @@ from core.prompt_templates.bot_recomments_prompt import BotRecommentsPrompt
 from models.koalpha_loader import KoalphaLoader
 from utils.error_handler import InvalidQueryParameterError, InvalidFormatError, InternalServerError
 
-
 class BotRecommentsService:
-    def __init__(self):
+    def __init__(self, app):
         self.logger = logging.getLogger(__name__)
+        # FastAPI app의 state에서 koalpha 싱글턴 인스턴스를 받아옴
+        self.koalpha = app.state.koalpha
 
     async def generate_bot_recomments(self, request: BotRecommentsRequest) -> BotRecommentsResponse:
         """
@@ -35,10 +36,7 @@ class BotRecommentsService:
             prompt = BotRecommentsPrompt()
             messages = prompt.json_to_messages(request)
 
-            mode = os.environ.get("LLM_MODE", "colab")
-
-            koalpha = KoalphaLoader(mode=mode)
-            model_response = koalpha.get_response(messages)
+            model_response = self.koalpha.get_response(messages)
 
             content = model_response.get("content", "")
 

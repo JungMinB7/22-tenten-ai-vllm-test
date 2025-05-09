@@ -1,14 +1,15 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Request
 from api.endpoints.controllers.bot_chats_controller import BotChatsController, BotChatsRequest
 
 # APIRouter 인스턴스 생성
 router = APIRouter()
-controller = BotChatsController()
 
 # 엔드포인트 예시
 @router.post("/")
-async def create_bot_chat(request: BotChatsRequest):
+async def create_bot_chat(request: Request, body: BotChatsRequest):
     """
     소셜봇이 새로운 채팅 메시지를 생성하는 엔드포인트
     """
-    return await controller.create_bot_chat(request)
+    # 요청마다 app 인스턴스를 controller에 넘김
+    controller = BotChatsController(request.app)
+    return await controller.create_bot_chat(body)

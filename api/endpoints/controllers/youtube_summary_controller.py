@@ -1,12 +1,14 @@
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse
 from services.youtube_summary_service import YouTubeSummaryService
 from schemas.youtube_summary_schema import YouTubeSummaryRequest, YouTubeSummaryResponse
 from utils.error_handler import InvalidYouTubeUrlError, SubtitlesNotFoundError, UnsupportedSubtitleLanguageError, VideoPrivateError, VideoNotFoundError
 
 class YouTubeSummaryController:
-    def __init__(self):
-        self.service = YouTubeSummaryService()
+    def __init__(self, app):
+        # FastAPI app 인스턴스를 받아 서비스에 전달
+        self.app = app
+        self.service = YouTubeSummaryService(app)
 
     async def create_summary(self, request: YouTubeSummaryRequest) -> YouTubeSummaryResponse:
         try:

@@ -3,8 +3,10 @@ from services.bot_chats_service import BotChatsService
 from schemas.bot_chats_schema import BotChatsRequest
 
 class BotChatsController:
-    def __init__(self):
-        self.service = BotChatsService()
+    def __init__(self, app):
+        # FastAPI app 인스턴스를 받아 서비스에 전달
+        self.app = app
+        self.service = BotChatsService(app)
 
     async def create_bot_chat(self, request: BotChatsRequest):
         try:
