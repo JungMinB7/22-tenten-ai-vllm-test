@@ -1,8 +1,10 @@
 .venv
 .22-tenten-ai
 .env
+venv
 __pycache__/
 api/endpoints/__pycache__/
 core/__pycache__/
 core/prompt_templates/__pycache__/
 models/__pycache__/
+.DS_Store

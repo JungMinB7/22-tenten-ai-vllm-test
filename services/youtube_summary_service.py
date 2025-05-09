@@ -16,11 +16,14 @@ from core.prompt_templates.youtube_summary_prompt import YoutubeSummaryPrompt
 from models.koalpha_loader import KoalphaLoader
 from utils.error_handler import InvalidYouTubeUrlError, SubtitlesNotFoundError, UnsupportedSubtitleLanguageError, VideoPrivateError, VideoNotFoundError
 import os
+from fastapi import Request  # FastAPI request 객체 import
 
 class YouTubeSummaryService:
-    def __init__(self):
+    def __init__(self, app):
         self.logger = logging.getLogger(__name__)
         self.transcript_api = YouTubeTranscriptApi()
+        # FastAPI app의 state에서 koalpha 싱글턴 인스턴스를 받아옴
+        self.koalpha = app.state.koalpha
 
     async def create_summary(self, url: str) -> YouTubeSummaryResponse:
         """
@@ -65,6 +68,7 @@ class YouTubeSummaryService:
         # 3. 자막 텍스트 전처리
         try:
             transcript_text = self._process_transcript(transcript)
+            print(f"[DEBUG] transcript_text: {transcript_text}")
         except Exception as e:
             print(f"[ERROR] transcript 처리 실패: {e}")
             raise Exception(f"transcript 처리 실패: {e}")
@@ -159,8 +163,9 @@ class YouTubeSummaryService:
             position = self._get_chunk_position(idx, len(chunks))
             prompt = YoutubeSummaryPrompt()
             messages = prompt.create_messages(chunk, position, prev_summary)
-            koalpha = KoalphaLoader(mode=mode)
-            response = koalpha.get_response(messages)
+            # 기존: koalpha = KoalphaLoader(mode=mode)
+            # 변경: 싱글턴 인스턴스 사용
+            response = self.koalpha.get_response(messages)
             summary = response.get('content', None)
             chunk_summaries.append(summary)
             prev_summary = summary
@@ -176,8 +181,9 @@ class YouTubeSummaryService:
                 {"role": "system", "content": system_msg},
                 {"role": "user", "content": user_msg}
             ]
-            koalpha = KoalphaLoader(mode=mode)
-            response = koalpha.get_response(messages)
+            # 기존: koalpha = KoalphaLoader(mode=mode)
+            # 변경: 싱글턴 인스턴스 사용
+            response = self.koalpha.get_response(messages)
             return response.get('content', None)
     
 # #파일을 직접 실행할 때 사용

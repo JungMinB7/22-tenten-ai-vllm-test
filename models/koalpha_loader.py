@@ -1,6 +1,7 @@
 import requests
 import os, time
 from dotenv import load_dotenv
+import logging
 
 class KoalphaLoader:
     def __init__(self, mode="colab"):
@@ -13,17 +14,25 @@ class KoalphaLoader:
         self.data = {
             "model": "allganize/Llama-3-Alpha-Ko-8B-Instruct",
             "messages": [],
-            "temperature": 0.7
+            "temperature": 0.7,
+            "max_tokens": 256
         }
         # GCP(vllm) 모드일 때만 vllm 엔진 초기화
         if self.mode == "gcp":
-            from vllm import LLM
+            from vllm import LLM, SamplingParams
             import torch
             self.model_vllm = LLM(
                 model="allganize/Llama-3-Alpha-Ko-8B-Instruct",
                 dtype="auto", # 또는 torch.bfloat16, torch.float16 등. torch.bfloat16은 최신 GPU(Ampere 이상)에서만 지원됨.
                 trust_remote_code=True,
                 tensor_parallel_size=1
+            )
+
+            self.sampling_params = SamplingParams(
+                temperature=0.7,
+                top_p=0.9,
+                max_tokens=256,
+                stop=["\n\n"]
             )
 
     def get_response(self, messages):
@@ -55,28 +64,41 @@ class KoalphaLoader:
                 "content": body["choices"][0]["message"]["content"]
             }
         elif self.mode == "gcp":
-            # vllm 엔진을 통한 직접 추론
-            prompt = self._messages_to_prompt(messages)
+            '''
+            vllm 엔진을 통한 직접 추론
+            '''
+
+            # Chat Prompt 형식에서 -> Text Prompt 형식으로 변경
+            prompt = ""
+            for msg in messages:
+                role = msg["role"]
+                content = msg["content"].strip()
+                if role == "system":
+                    prompt += f"System: {content}\n\n"
+                elif role == "user":
+                    prompt += f"User: {content}\n\n"
+
+            # 모델이 여기에 답을 이어 쓰도록 명확히 표시
+            prompt += "Assistant: "
             start_time = time.time()
-            outputs = self.model_vllm.generate(prompt)
-            end_time = time.time()
-            print(f"response time : {(end_time - start_time):.3f}")
-            content = outputs[0]  # vllm은 리스트[str] 반환
+
+            try:
+                outputs = self.model_vllm.generate(prompt, self.sampling_params)
+                content = outputs[0].outputs[0].text
+            except Exception as e:
+                print(f"ChatCompletion error: {e}")
+                return {
+                    "status_code": 500,
+                    "url": "local_vllm",
+                    "error": str(e)
+                }
+
+            print(f"response time : {time.time() - start_time:.3f} sec")
             return {
                 "status_code": 200,
                 "url": "local_vllm",
                 "content": content
             }
-
-    def _messages_to_prompt(self, messages):
-        # system/user 메시지 리스트를 하나의 프롬프트 문자열로 변환
-        prompt = ""
-        for msg in messages:
-            if msg["role"] == "system":
-                prompt += f"[System]\n{msg['content']}\n"
-            elif msg["role"] == "user":
-                prompt += f"[User]\n{msg['content']}\n"
-        return prompt
 
 '''
 KoalphaLoader 클래스 사용 방법 예시

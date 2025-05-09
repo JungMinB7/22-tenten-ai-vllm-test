@@ -5,8 +5,10 @@ import os
 from models.koalpha_loader import KoalphaLoader
 
 class BotChatsService:
-    def __init__(self):
+    def __init__(self, app):
         self.logger = logging.getLogger(__name__)
+        # FastAPI app의 state에서 koalpha 싱글턴 인스턴스를 받아옴
+        self.koalpha = app.state.koalpha
 
     async def generate_bot_chat(self, request: BotChatsRequest) -> BotChatsResponse:
         """
@@ -18,9 +20,7 @@ class BotChatsService:
             
             # TODO: 여기에 실제 AI 모델을 통한 채팅 메시지 생성 로직 구현
             # 현재는 임시 응답 반환
-            mode = os.environ.get("LLM_MODE", "colab")
-            
-            koalpha = KoalphaLoader(mode=mode)
+            model_response = self.koalpha.get_response(messages)
             return {
                 "status": "success",
                 "message": "Bot chat message generated successfully",
