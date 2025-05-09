@@ -35,10 +35,13 @@ class YouTubeSummaryService:
         Raises:
             커스텀 예외 (InvalidYouTubeUrlError, SubtitlesNotFoundError, UnsupportedSubtitleLanguageError, VideoPrivateError, VideoNotFoundError)
         """
-        # 1. video_id 추출
+        # 1. URL 프로토콜 확인 및 보정
+        url = self._ensure_url_scheme(url)
+
+        # 2. video_id 추출
         video_id = self._extract_video_id(url)
 
-        # 2. 자막 추출 및 예외 처리
+        # 3. 자막 추출 및 예외 처리
         try:
             transcript = self.transcript_api.fetch(video_id, languages=['ko', 'en'])
             if not transcript:
@@ -65,7 +68,7 @@ class YouTubeSummaryService:
                 print(f"[ERROR] transcript 추출 실패: {e}")
                 raise Exception(f"transcript 추출 실패: {e}")
 
-        # 3. 자막 텍스트 전처리
+        # 4. 자막 텍스트 전처리
         try:
             transcript_text = self._process_transcript(transcript)
             print(f"[DEBUG] transcript_text: {transcript_text}")
@@ -73,15 +76,23 @@ class YouTubeSummaryService:
             print(f"[ERROR] transcript 처리 실패: {e}")
             raise Exception(f"transcript 처리 실패: {e}")
 
-        # 4. LLM을 통한 요약 생성
+        # 5. LLM을 통한 요약 생성
         summary = self._create_summary(transcript_text)
 
-        # 5. 결과 반환
+        # 6. 결과 반환
         result = YouTubeSummaryResponse(
             message="YouTube 영상이 요약되었습니다.",
             data=YouTubeSummaryData(summary=summary)
         )
         return result
+    
+    def _ensure_url_scheme(self, url: str) -> str:
+        """
+        유튜브 URL에서 프로토콜 확인 및 보정
+        """
+        if not url.startswith(("http://", "https://")):
+            return "https://" + url
+        return url
 
     def _extract_video_id(self, url: str) -> str:
         """
