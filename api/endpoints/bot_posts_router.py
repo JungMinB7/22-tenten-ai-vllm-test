@@ -1,15 +1,15 @@
 from fastapi import APIRouter, Request
-from api.endpoints.controllers.youtube_summary_controller import YouTubeSummaryController, YouTubeSummaryRequest
+from api.endpoints.controllers.bot_posts_controller import BotPostsController, BotPostsRequest
 
 # APIRouter 인스턴스 생성
 router = APIRouter()
 
 # 엔드포인트 예시
-@router.post("/summary")
-async def create_youtube_summary(request: Request, body: YouTubeSummaryRequest):
+@router.post("/")
+async def create_bot_post(request: Request, body: BotPostsRequest):
     """
-    YouTube 영상 URL을 받아서 요약본을 반환하는 엔드포인트
+    소셜봇이 새로운 게시글을 생성하는 엔드포인트
     """
     # 요청마다 app 인스턴스를 controller에 전달해 싱글턴 모델을 사용
-    controller = YouTubeSummaryController(request.app)
-    return await controller.create_summary(body)
+    controller = BotPostsController(request.app)
+    return await controller.create_bot_post(body)
