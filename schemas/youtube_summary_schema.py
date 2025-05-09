@@ -2,7 +2,7 @@ from pydantic import BaseModel, HttpUrl
 from typing import Optional
 
 class YouTubeSummaryRequest(BaseModel):
-    url: HttpUrl
+    url: str
 
 class YouTubeSummaryData(BaseModel):
     summary: Optional[str] = None
