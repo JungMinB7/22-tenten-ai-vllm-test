@@ -1,20 +1,15 @@
-from fastapi import APIRouter
-from schemas.bot_recomments_schema import BotRecommentsRequest, BotRecommentsResponse
-from api.endpoints.controllers.bot_recomments_controller import BotRecommentsController
+from fastapi import APIRouter, Request
+from api.endpoints.controllers.bot_recomments_controller import BotRecommentsController, BotRecommentsRequest
 
 # APIRouter 인스턴스 생성
 router = APIRouter()
-controller = BotRecommentsController()
 
 # 엔드포인트 예시
-@router.post(
-        "/",
-        response_model=BotRecommentsResponse,
-        summary="소셜봇 대댓글 작성",
-        description="POST recomments/bot 으로 대댓글 생성 요청"
-        )
-async def create_bot_recomments(request: BotRecommentsRequest):
+@router.post("/")
+async def create_bot_recomments(request: Request, body: BotRecommentsRequest):
     """
     소셜봇이 새로운 댓글을 생성하는 엔드포인트
     """
-    return await controller.create_bot_recomments(request)
+    # 요청마다 app 인스턴스를 controller에 전달해 싱글턴 모델을 사용
+    controller = BotRecommentsController(request.app)
+    return await controller.create_bot_recomments(body)
