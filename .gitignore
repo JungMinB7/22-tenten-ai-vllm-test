@@ -8,3 +8,4 @@ core/__pycache__/
 core/prompt_templates/__pycache__/
 models/__pycache__/
 .DS_Store
+persona.json
