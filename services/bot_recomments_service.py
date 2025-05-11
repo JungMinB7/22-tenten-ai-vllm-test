@@ -39,7 +39,7 @@ class BotRecommentsService:
         """
         # Langfuse trace 시작
         trace = self.langfuse.trace(
-            name="bot_posts_service",
+            name="bot_recomments_service",
             metadata={
                 "board_type": request.board_type,
             },
