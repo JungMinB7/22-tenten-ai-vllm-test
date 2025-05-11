@@ -6,17 +6,18 @@
 # project_root = os.path.dirname(current_dir)  # 프로젝트 루트는 한 단계 위
 # sys.path.append(project_root)
 
-from typing import Optional
 import logging
-import asyncio
 from youtube_transcript_api import YouTubeTranscriptApi
 from urllib.parse import urlparse, parse_qs
 from schemas.youtube_summary_schema import YouTubeSummaryData, YouTubeSummaryResponse
 from core.prompt_templates.youtube_summary_prompt import YoutubeSummaryPrompt
-from models.koalpha_loader import KoalphaLoader
 from utils.error_handler import InvalidYouTubeUrlError, SubtitlesNotFoundError, UnsupportedSubtitleLanguageError, VideoPrivateError, VideoNotFoundError
 import os
-from fastapi import Request  # FastAPI request 객체 import
+from dotenv import load_dotenv
+from langfuse import Langfuse
+from datetime import datetime
+import traceback
+from fastapi import HTTPException
 
 class YouTubeSummaryService:
     def __init__(self, app):
@@ -24,6 +25,15 @@ class YouTubeSummaryService:
         self.transcript_api = YouTubeTranscriptApi()
         # FastAPI app의 state에서 koalpha 싱글턴 인스턴스를 받아옴
         self.koalpha = app.state.koalpha
+        self.mode = self.koalpha.mode
+
+        # Langfuse 초기화
+        load_dotenv(override=True)
+        self.langfuse = Langfuse(
+            secret_key=os.getenv('LANGFUSE_SECRET_KEY'),
+            public_key=os.getenv('LANGFUSE_PUBLIC_KEY'),
+            host=os.getenv('LANGFUSE_HOST')
+        )
 
     async def create_summary(self, url: str) -> YouTubeSummaryResponse:
         """
@@ -35,56 +45,86 @@ class YouTubeSummaryService:
         Raises:
             커스텀 예외 (InvalidYouTubeUrlError, SubtitlesNotFoundError, UnsupportedSubtitleLanguageError, VideoPrivateError, VideoNotFoundError)
         """
-        # 1. URL 프로토콜 확인 및 보정
-        url = self._ensure_url_scheme(url)
 
-        # 2. video_id 추출
-        video_id = self._extract_video_id(url)
-
-        # 3. 자막 추출 및 예외 처리
-        try:
-            transcript = self.transcript_api.fetch(video_id, languages=['ko', 'en'])
-            if not transcript:
-                # 자막이 아예 없는 경우
-                raise SubtitlesNotFoundError()
-        except SubtitlesNotFoundError:
-            raise
-        except Exception as e:
-            error_msg = str(e)
-            print(f"[DEBUG][youtube_transcript_api Exception] error_msg: {error_msg}")  # 개발/테스트용 에러 메시지 출력
-            if 'Subtitles are disabled' in error_msg:
-                # 유튜브 동영상에 자막이 없는 경우
-                raise SubtitlesNotFoundError()
-            elif """No transcripts were found for any of the requested language codes: ['ko', 'en']""" in error_msg:
-                # 지원하지 않는 언어(한국어/영어가 아닌 자막)인 경우
-                raise UnsupportedSubtitleLanguageError()
-            elif 'The video is unplayable for the following reason: No reason specified!' in error_msg:
-                # 비공개 동영상인 경우
-                raise VideoPrivateError()
-            elif 'The video is no longer available' in error_msg:
-                # 존재하지 않는 동영상인 경우
-                raise VideoNotFoundError()
-            else:
-                print(f"[ERROR] transcript 추출 실패: {e}")
-                raise Exception(f"transcript 추출 실패: {e}")
-
-        # 4. 자막 텍스트 전처리
-        try:
-            transcript_text = self._process_transcript(transcript)
-            print(f"[DEBUG] transcript_text: {transcript_text}")
-        except Exception as e:
-            print(f"[ERROR] transcript 처리 실패: {e}")
-            raise Exception(f"transcript 처리 실패: {e}")
-
-        # 5. LLM을 통한 요약 생성
-        summary = self._create_summary(transcript_text)
-
-        # 6. 결과 반환
-        result = YouTubeSummaryResponse(
-            message="YouTube 영상이 요약되었습니다.",
-            data=YouTubeSummaryData(summary=summary)
+        # Trace 시작
+        trace = self.langfuse.trace(
+            name="posts_youtube_service",
+            input={"url": url}
         )
-        return result
+
+        try : 
+
+            # 1. URL 프로토콜 확인 및 보정
+            url = self._ensure_url_scheme(url)
+
+            # 2. video_id 추출
+            video_id = self._extract_video_id(url)
+
+            # 3. 자막 추출 및 예외 처리
+            try:
+                transcript = self.transcript_api.fetch(video_id, languages=['ko', 'en'])
+                if not transcript:
+                    # 자막이 아예 없는 경우
+                    raise SubtitlesNotFoundError()
+            except SubtitlesNotFoundError:
+                raise
+            except Exception as e:
+                error_msg = str(e)
+                print(f"[DEBUG][youtube_transcript_api Exception] error_msg: {error_msg}")  # 개발/테스트용 에러 메시지 출력
+                if 'Subtitles are disabled' in error_msg:
+                    # 유튜브 동영상에 자막이 없는 경우
+                    raise SubtitlesNotFoundError()
+                elif """No transcripts were found for any of the requested language codes: ['ko', 'en']""" in error_msg:
+                    # 지원하지 않는 언어(한국어/영어가 아닌 자막)인 경우
+                    raise UnsupportedSubtitleLanguageError()
+                elif 'The video is unplayable for the following reason: No reason specified!' in error_msg:
+                    # 비공개 동영상인 경우
+                    raise VideoPrivateError()
+                elif 'The video is no longer available' in error_msg:
+                    # 존재하지 않는 동영상인 경우
+                    raise VideoNotFoundError()
+                else:
+                    print(f"[ERROR] transcript 추출 실패: {e}")
+                    raise Exception(f"transcript 추출 실패: {e}")
+
+            # 4. 자막 텍스트 전처리
+            try:
+                transcript_text = self._process_transcript(transcript)
+                trace.update(input={"transcript_text": transcript_text})
+                print(f"[DEBUG] transcript_text: {transcript_text}")
+            except Exception as e:
+                print(f"[ERROR] transcript 처리 실패: {e}")
+                raise Exception(f"transcript 처리 실패: {e}")
+
+            # 5. LLM을 통한 요약 생성
+            summary = self._create_summary(transcript_text, trace)
+
+            # 4) 최종 결과 기록 및 종료
+            trace.update(output={"summary": summary})
+
+            # Pydantic 모델 생성까지 감싸서 에러 로깅
+            try:
+                result = YouTubeSummaryResponse(
+                    message="YouTube 영상이 요약되었습니다.",
+                    data=YouTubeSummaryData(summary=summary)
+                )
+                return result
+            except Exception as e:
+                # Pydantic ValidationError 등 모든 예외 스택 출력
+                self.logger.error("Response 모델 생성 실패", exc_info=True)
+                traceback.print_exc()
+                trace.update(status="error", error=str(e))
+
+                # 클라이언트에 좀 더 구체적인 에러 메시지라도 남기려면 HTTPException 사용
+                raise HTTPException(status_code=500, detail="Response Validation Error")
+
+        except Exception as e:
+            # 기존 예외 핸들러에도 스택 출력 추가
+            self.logger.error("create_summary 실행 중 에러 발생", exc_info=True)
+            traceback.print_exc()
+            trace.update(status="error", error=str(e))
+            # 그대로 에러를 올려 FastAPI가 500을 반환하도록 둡니다
+            raise
     
     def _ensure_url_scheme(self, url: str) -> str:
         """
@@ -154,7 +194,7 @@ class YouTubeSummaryService:
         else:
             return "전체 텍스트의 중간 부분"
 
-    def _create_summary(self, transcript_text: str) -> str:
+    def _create_summary(self, transcript_text: str, trace) -> str:
         """
         긴 자막도 청크로 분할하여 순차적으로 요약, 마지막에 통합 요약
         Args:
@@ -167,17 +207,30 @@ class YouTubeSummaryService:
         chunks = self._split_transcript(transcript_text, chunk_size, overlap)
         chunk_summaries = []
         prev_summary = None
-
-        mode = os.environ.get("LLM_MODE", "colab")
+        prompt_builder = YoutubeSummaryPrompt(self.mode)
 
         for idx, chunk in enumerate(chunks):
             position = self._get_chunk_position(idx, len(chunks))
-            prompt = YoutubeSummaryPrompt()
-            messages = prompt.create_messages(chunk, position, prev_summary)
+            prompt_client, messages = prompt_builder.create_chunk_messages(chunk, position, prev_summary)
+            
+            start_time = datetime.now() # Generation 시작 시간
             # 기존: koalpha = KoalphaLoader(mode=mode)
             # 변경: 싱글턴 인스턴스 사용
             response = self.koalpha.get_response(messages)
+            end_time = datetime.now()
+
             summary = response.get('content', None)
+
+            # trace.generation 호출로 프롬프트 및 메시지 연결
+            trace.generation(
+                name="chunk_summary",
+                prompt=prompt_client,
+                input={"messages": messages},
+                output={"summary": summary},
+                start_time=start_time,
+                end_time=end_time
+            )
+
             chunk_summaries.append(summary)
             prev_summary = summary
 
@@ -186,16 +239,26 @@ class YouTubeSummaryService:
             return chunk_summaries[0]
         else:
             # 통합 프롬프트
-            system_msg = "너는 아주 친절한 AI 어시스턴트야. 아래 여러 부분 요약을 참고해서 전체 텍스트의 3가지 핵심 포인트를 한국어로 요약해줘."
-            user_msg = "\n\n".join([f"청크 {i+1} 요약: {s}" for i, s in enumerate(chunk_summaries)])
-            messages = [
-                {"role": "system", "content": system_msg},
-                {"role": "user", "content": user_msg}
-            ]
+            prompt_client, messages = prompt_builder.create_final_messages(chunk_summaries)
+
+            start_time = datetime.now() # Generation 시작 시간
             # 기존: koalpha = KoalphaLoader(mode=mode)
             # 변경: 싱글턴 인스턴스 사용
             response = self.koalpha.get_response(messages)
-            return response.get('content', None)
+            end_time = datetime.now()
+
+            final_summary = response.get('content', None)
+            # 통합 요약 Generation 이벤트 기록
+            trace.generation(
+                name="final_summary",
+                prompt=prompt_client,
+                input={"messages": messages},
+                output={"final_summary": final_summary},
+                start_time=start_time,
+                end_time=end_time
+            )
+
+            return final_summary
     
 # #파일을 직접 실행할 때 사용
 # async def main():
