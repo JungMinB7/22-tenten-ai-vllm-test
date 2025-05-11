@@ -131,7 +131,7 @@ class BotRecommentsPrompt:
             for r in recomments:
                 messages.append({
                     "role": "user",
-                    "content": f"[{r.user.nickname} from {r.user.class_name}] {r.content}"
+                    "content": f"대댓글: [{r.user.nickname} from {r.user.class_name}] {r.content}"
                 })
         # prompt 객체와 messages 를 함께 반환
         return prompt_client, messages
