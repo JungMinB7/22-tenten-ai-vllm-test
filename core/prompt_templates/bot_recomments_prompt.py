@@ -120,7 +120,7 @@ class BotRecommentsPrompt:
 
         # user context: 게시글, 원댓글, 기존 대댓글
         messages.append({
-            "role": "user",
+            "role": "assistant",
             "content": f"게시물: [{post.user.nickname} from {post.user.class_name}] {post.content}"
         })
         messages.append({
@@ -129,9 +129,15 @@ class BotRecommentsPrompt:
         })
         if recomments:
             for r in recomments:
-                messages.append({
-                    "role": "user",
-                    "content": f"대댓글: [{r.user.nickname} from {r.user.class_name}] {r.content}"
-                })
+                if r.user.nickname == self.persona["nickname"]:
+                    messages.append({
+                        "role": "aassistant",
+                        "content": f"대댓글: [{r.user.nickname} from {r.user.class_name}] {r.content}"
+                    })
+                else : 
+                    messages.append({
+                        "role": "user",
+                        "content": f"대댓글: [{r.user.nickname} from {r.user.class_name}] {r.content}"
+                    })
         # prompt 객체와 messages 를 함께 반환
         return prompt_client, messages

@@ -8,6 +8,7 @@ from utils.error_handler import InvalidQueryParameterError, InternalServerError
 from dotenv import load_dotenv
 from langfuse import Langfuse
 
+import re
 class BotPostsService:
     def __init__(self, app):
         self.logger = logging.getLogger(__name__)
@@ -23,6 +24,16 @@ class BotPostsService:
             public_key=os.getenv('LANGFUSE_PUBLIC_KEY'),
             host=os.getenv('LANGFUSE_HOST')
         )
+    
+    def clean_response(self, text):
+        # Remove everything before the first colon, inclusive
+        if ':' in text:
+            text = text.split(':', 1)[1]
+        # Remove content inside square brackets including the brackets
+        text = re.sub(r'\[.*?\]', '', text)
+        # Replace multiple spaces with a single space
+        text = re.sub(r'\s+', ' ', text)
+        return text.strip()
 
     async def generate_bot_post(self, request: BotPostsRequest) -> BotPostsResponse:
         """
@@ -66,6 +77,11 @@ class BotPostsService:
             end_time = datetime.now()
 
             content = model_response.get("content", "")
+
+            ## 후처리...
+            print(f"content : {content}")
+            content = self.clean_response(content)
+            print(f"content : {content}")
 
             # 응답 구조 생성
             data = BotPostResponseData(
