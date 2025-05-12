@@ -15,7 +15,7 @@ class KoalphaLoader:
         self.data = {
             "model": self.model_path ,
             "messages": [],
-            "temperature": 0.7,
+            "temperature": 0.0,
             "max_tokens": 256
         }
         # GCP(vllm) 모드일 때만 vllm 엔진 초기화
