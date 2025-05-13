@@ -16,7 +16,9 @@ class KoalphaLoader:
             "model": self.model_path ,
             "messages": [],
             "temperature": 0.0,
-            "max_tokens": 256
+            "top_p": 0.9,
+            "max_tokens": 256,
+            "stop": ["\n\n", "</s>"]
         }
         # GCP(vllm) 모드일 때만 vllm 엔진 초기화
         if self.mode == "gcp":
@@ -24,13 +26,17 @@ class KoalphaLoader:
 
             self.model_vllm = LLM(
                 model=self.model_path ,
-                dtype="auto", # 또는 torch.bfloat16, torch.float16 등. torch.bfloat16은 최신 GPU(Ampere 이상)에서만 지원됨.
+                dtype="half", # 또는 torch.bfloat16, torch.float16 등. torch.bfloat16은 최신 GPU(Ampere 이상)에서만 지원됨.
                 trust_remote_code=True,
-                tensor_parallel_size=1
+                tensor_parallel_size=1,
+                max_model_len=8192,
+                gpu_memory_utilization=0.9,
+                max_num_seqs=5,
+                max_num_batched_tokens=2048
             )
 
             self.sampling_params = SamplingParams(
-                temperature=0.7,
+                temperature=0.0,
                 top_p=0.9,
                 max_tokens=256,
                 stop=["\n\n", "</s>"] 
