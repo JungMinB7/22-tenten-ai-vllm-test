@@ -5,7 +5,7 @@ from api.endpoints.controllers.bot_posts_controller import BotPostsController, B
 router = APIRouter()
 
 # 엔드포인트 예시
-@router.post("/")
+@router.post("")
 async def create_bot_post(request: Request, body: BotPostsRequest):
     """
     소셜봇이 새로운 게시글을 생성하는 엔드포인트
