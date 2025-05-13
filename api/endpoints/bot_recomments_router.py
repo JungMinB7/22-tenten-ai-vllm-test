@@ -5,7 +5,7 @@ from api.endpoints.controllers.bot_recomments_controller import BotRecommentsCon
 router = APIRouter()
 
 # 엔드포인트 예시
-@router.post("/")
+@router.post("")
 async def create_bot_recomments(request: Request, body: BotRecommentsRequest):
     """
     소셜봇이 새로운 댓글을 생성하는 엔드포인트
