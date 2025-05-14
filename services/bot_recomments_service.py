@@ -78,7 +78,9 @@ class BotRecommentsService:
 
             # Generation 시작 시간
             start_time = datetime.now()
-            model_response = self.koalpha.get_response(messages)
+            model_response = self.koalpha.get_response(
+                messages, trace=trace, start_time=start_time, prompt=prompt_client, name="generate_bot_recomment"
+            )
             end_time = datetime.now()
 
             content = model_response.get("content", "")
@@ -95,17 +97,6 @@ class BotRecommentsService:
                 comment_id=request.comment.id,
                 user=UserInfoResponse(**bot_user),
                 content=content
-            )
-
-
-            # Generation 이벤트 기록 – prompt_client 변수로 더 명확히
-            trace.generation(
-                name="generate_bot_recomment",
-                prompt=prompt_client,
-                input={"messages": messages},
-                output={"content": content},
-                start_time=start_time,
-                end_time=end_time
             )
 
             return BotRecommentsResponse(

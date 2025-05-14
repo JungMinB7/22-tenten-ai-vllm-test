@@ -2,6 +2,7 @@ import requests
 import os, time
 from dotenv import load_dotenv
 import logging
+from utils.logger import log_inference_to_langfuse
 
 class KoalphaLoader:
     def __init__(self, mode="colab"):
@@ -15,8 +16,8 @@ class KoalphaLoader:
         self.data = {
             "model": self.model_path ,
             "messages": [],
-            "temperature": 0.0,
-            "top_p": 0.9,
+            "temperature": 0.5,
+            "top_p": 0.5,
             "max_tokens": 256,
             "stop": ["\n\n", "</s>"]
         }
@@ -36,13 +37,13 @@ class KoalphaLoader:
             )
 
             self.sampling_params = SamplingParams(
-                temperature=0.0,
-                top_p=0.9,
+                temperature=0.5,
+                top_p=0.5,
                 max_tokens=256,
                 stop=["\n\n", "</s>"] 
             )
 
-    def get_response(self, messages):
+    def get_response(self, messages, trace, start_time=None, prompt=None, name="vllm-inference"):
         if self.mode == "colab":
             # Ngrok(Colab) API로 요청
             load_dotenv(override=True)
@@ -75,7 +76,6 @@ class KoalphaLoader:
             vllm 엔진을 통한 직접 추론
             '''
 
-            # Chat Prompt 형식에서 -> Text Prompt 형식으로 변경
             from transformers import AutoTokenizer
             tokenizer = AutoTokenizer.from_pretrained(self.model_path)
 
@@ -86,21 +86,91 @@ class KoalphaLoader:
                 tokenize=False               # string 그대로 받기
             )
 
-            start_time = time.time()
+            if start_time is None:
+                from datetime import datetime
+                start_time = datetime.now()
 
             try:
                 outputs = self.model_vllm.generate(text_prompt, self.sampling_params)
                 content = outputs[0].outputs[0].text
-                
+                output_token_ids = outputs[0].outputs[0].token_ids
+                output_tokens = len(output_token_ids)
+                input_tokens = len(tokenizer(text_prompt)["input_ids"])
+                from datetime import datetime
+                gen_end = datetime.now()
+                inference_time = (gen_end - start_time).total_seconds()
+
+                log_inference_to_langfuse(
+                    trace=trace,
+                    name=name,
+                    prompt=prompt,
+                    messages=messages,
+                    text_prompt=text_prompt,
+                    content=content,
+                    model_name=self.model_path,
+                    model_parameters={
+                        "temperature": self.sampling_params.temperature,
+                        "top_p": self.sampling_params.top_p,
+                        "max_tokens": self.sampling_params.max_tokens,
+                        "stop": self.sampling_params.stop,
+                        "dtype": "half",
+                        "tensor_parallel_size": 1,
+                        "max_model_len": 8192,
+                        "gpu_memory_utilization": 0.9,
+                        "max_num_seqs": 5,
+                        "max_num_batched_tokens": 2048,
+                    },
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
+                    inference_time=inference_time,
+                    start_time=start_time,
+                    end_time=gen_end,
+                    error=None
+                )
             except Exception as e:
+                import traceback
+                error_info = {
+                    "type": type(e).__name__,
+                    "message": str(e),
+                    "traceback": traceback.format_exc()
+                }
+                from datetime import datetime
+                gen_end = datetime.now()
+                log_inference_to_langfuse(
+                    trace=trace,
+                    name=name,
+                    prompt=prompt,
+                    messages=messages,
+                    text_prompt=text_prompt,
+                    content=None,
+                    model_name=self.model_path,
+                    model_parameters={
+                        "temperature": self.sampling_params.temperature,
+                        "top_p": self.sampling_params.top_p,
+                        "max_tokens": self.sampling_params.max_tokens,
+                        "stop": self.sampling_params.stop,
+                        "dtype": "half",
+                        "tensor_parallel_size": 1,
+                        "max_model_len": 8192,
+                        "gpu_memory_utilization": 0.9,
+                        "max_num_seqs": 5,
+                        "max_num_batched_tokens": 2048,
+                    },
+                    input_tokens=0,
+                    output_tokens=0,
+                    inference_time=0.0,
+                    start_time=start_time,
+                    end_time=gen_end,
+                    error=error_info
+                )
                 print(f"ChatCompletion error: {e}")
                 return {
                     "status_code": 500,
                     "url": "local_vllm",
                     "error": str(e)
                 }
-            
-            print(f"response time : {time.time() - start_time:.3f} sec")
+
+            print(f"response time : {inference_time:.3f} sec")
 
             return {
                 "status_code": 200,

@@ -214,22 +214,12 @@ class YouTubeSummaryService:
             prompt_client, messages = prompt_builder.create_chunk_messages(chunk, position, prev_summary)
             
             start_time = datetime.now() # Generation 시작 시간
-            # 기존: koalpha = KoalphaLoader(mode=mode)
-            # 변경: 싱글턴 인스턴스 사용
-            response = self.koalpha.get_response(messages)
+            response = self.koalpha.get_response(
+                messages, trace=trace, start_time=start_time, prompt=prompt_client, name="chunk_summary"
+            )
             end_time = datetime.now()
 
             summary = response.get('content', None)
-
-            # trace.generation 호출로 프롬프트 및 메시지 연결
-            trace.generation(
-                name="chunk_summary",
-                prompt=prompt_client,
-                input={"messages": messages},
-                output={"summary": summary},
-                start_time=start_time,
-                end_time=end_time
-            )
 
             chunk_summaries.append(summary)
             prev_summary = summary
@@ -242,21 +232,12 @@ class YouTubeSummaryService:
             prompt_client, messages = prompt_builder.create_final_messages(chunk_summaries)
 
             start_time = datetime.now() # Generation 시작 시간
-            # 기존: koalpha = KoalphaLoader(mode=mode)
-            # 변경: 싱글턴 인스턴스 사용
-            response = self.koalpha.get_response(messages)
+            response = self.koalpha.get_response(
+                messages, trace=trace, start_time=start_time, prompt=prompt_client, name="final_summary"
+            )
             end_time = datetime.now()
 
             final_summary = response.get('content', None)
-            # 통합 요약 Generation 이벤트 기록
-            trace.generation(
-                name="final_summary",
-                prompt=prompt_client,
-                input={"messages": messages},
-                output={"final_summary": final_summary},
-                start_time=start_time,
-                end_time=end_time
-            )
 
             return final_summary
     
