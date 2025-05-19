@@ -9,6 +9,10 @@ from api.endpoints.bot_recomments_router import router as bot_recomment_router
 from api.endpoints.bot_chats_router import router as bot_chat_router
 from models.koalpha_loader import KoalphaLoader  # KoalphaLoader import 추가
 
+from api.endpoints.discord_webhook_router import router as discord_router ## for Discord Webhook
+from utils.logger_discord import setup_logging
+from utils.exception_handler import register_exception_handlers
+
 # CLI 인자 파싱 함수 추가
 def parse_args():
     parser = argparse.ArgumentParser(description="텐텐 GPU 사용 모드 선택")
@@ -51,12 +55,18 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+# 디스코드 웹훅 로깅 설정: 파일 + 콘솔 + Discord
+setup_logging("ai-log.log")
+# 디스코드 웹훅 예외 핸들러 등록
+register_exception_handlers(app)
+
 
 # 라우터 등록
 app.include_router(youtube_router, prefix="/posts/youtube", tags=["youtube"])
 app.include_router(bot_post_router, prefix="/posts/bot", tags=["bot-posts"])
 app.include_router(bot_recomment_router, prefix="/recomments/bot", tags=["bot-recomments"])
 app.include_router(bot_chat_router, prefix="/chats/bot", tags=["bot-chats"])
+app.include_router(discord_router, prefix="/error_log", tags=["discord-webhook"]) # Discord Webhook router
 
 # 서버 구동을 위한 설정
 if __name__ == "__main__":
