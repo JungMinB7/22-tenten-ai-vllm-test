@@ -2,13 +2,13 @@ from typing import List
 import logging
 from schemas.bot_chats_schema import BotChatsRequest, BotChatsResponse, BotChatResponseData, UserInfoResponse
 import os
-from models.koalpha_loader import KoalphaLoader
+from models.model_loader import ModelLoader
 
 class BotChatsService:
     def __init__(self, app):
         self.logger = logging.getLogger(__name__)
-        # FastAPI app의 state에서 koalpha 싱글턴 인스턴스를 받아옴
-        self.koalpha = app.state.koalpha
+        # FastAPI app의 state에서 model 싱글턴 인스턴스를 받아옴
+        self.model = app.state.model
 
     async def generate_bot_chat(self, request: BotChatsRequest) -> BotChatsResponse:
         """
@@ -20,7 +20,8 @@ class BotChatsService:
             
             # TODO: 여기에 실제 AI 모델을 통한 채팅 메시지 생성 로직 구현
             # 현재는 임시 응답 반환
-            model_response = self.koalpha.get_response(messages)
+            
+            # model_response = self.model.get_response(messages)
             return {
                 "status": "success",
                 "message": "Bot chat message generated successfully",

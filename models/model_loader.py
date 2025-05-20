@@ -4,7 +4,7 @@ from dotenv import load_dotenv
 import logging
 from utils.logger import log_inference_to_langfuse
 
-class KoalphaLoader:
+class ModelLoader:
     def __init__(self, mode="colab"):
         self.mode = mode
         self.model_path = "allganize/Llama-3-Alpha-Ko-8B-Instruct"
@@ -177,15 +177,3 @@ class KoalphaLoader:
                 "url": "local_vllm",
                 "content": content
             }
-
-'''
-KoalphaLoader 클래스 사용 방법 예시
-'''
-'''
-messages = [
-                {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": "안녕! 날씨 어때?"}
-            ]
-koalpha=KoalphaLoader()
-print(koalpha.get_response(messages))
-'''
