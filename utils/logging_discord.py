@@ -3,6 +3,7 @@ import requests
 import traceback
 import tempfile
 import re
+import os
 
 
 
@@ -12,6 +13,9 @@ class DiscordWebhookHandler(logging.Handler):
     def emit(self, record):
         try:
             log_entry = self.format(record).lower()
+
+            if os.getenv("SEND_DISCORD_LOG", "False").lower() != "true":
+                return
 
             # STARTUP/SHUTDOWN 및 기타 무시할 로그 제외
             if (
