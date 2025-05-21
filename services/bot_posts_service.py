@@ -12,9 +12,9 @@ import re
 class BotPostsService:
     def __init__(self, app):
         self.logger = logging.getLogger(__name__)
-        # FastAPI app의 state에서 koalpha 싱글턴 인스턴스를 받아옴
-        self.koalpha = app.state.koalpha
-        self.mode = self.koalpha.mode
+        # FastAPI app의 state에서 model 싱글턴 인스턴스를 받아옴
+        self.model = app.state.model
+        self.mode = self.model.mode
         print(f"MODE : {self.mode}")
         
         # Langfuse 초기화
@@ -73,7 +73,7 @@ class BotPostsService:
 
             # Generation 시작 시간
             start_time = datetime.now()
-            model_response = self.koalpha.get_response(
+            model_response = self.model.get_response(
                 messages, trace=trace, start_time=start_time, prompt=prompt_client, name="generate_bot_post"
             )
             end_time = datetime.now()
