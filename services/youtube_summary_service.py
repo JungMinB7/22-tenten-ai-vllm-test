@@ -23,9 +23,9 @@ class YouTubeSummaryService:
     def __init__(self, app):
         self.logger = logging.getLogger(__name__)
         self.transcript_api = YouTubeTranscriptApi()
-        # FastAPI app의 state에서 koalpha 싱글턴 인스턴스를 받아옴
-        self.koalpha = app.state.koalpha
-        self.mode = self.koalpha.mode
+        # FastAPI app의 state에서 model 싱글턴 인스턴스를 받아옴
+        self.model = app.state.model
+        self.mode = self.model.mode
 
         # Langfuse 초기화
         load_dotenv(override=True)
@@ -214,7 +214,7 @@ class YouTubeSummaryService:
             prompt_client, messages = prompt_builder.create_chunk_messages(chunk, position, prev_summary)
             
             start_time = datetime.now() # Generation 시작 시간
-            response = self.koalpha.get_response(
+            response = self.model.get_response(
                 messages, trace=trace, start_time=start_time, prompt=prompt_client, name="chunk_summary"
             )
             end_time = datetime.now()
@@ -232,7 +232,7 @@ class YouTubeSummaryService:
             prompt_client, messages = prompt_builder.create_final_messages(chunk_summaries)
 
             start_time = datetime.now() # Generation 시작 시간
-            response = self.koalpha.get_response(
+            response = self.model.get_response(
                 messages, trace=trace, start_time=start_time, prompt=prompt_client, name="final_summary"
             )
             end_time = datetime.now()

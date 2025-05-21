@@ -7,7 +7,7 @@ from api.endpoints.youtube_summary_router import router as youtube_router
 from api.endpoints.bot_posts_router import router as bot_post_router
 from api.endpoints.bot_recomments_router import router as bot_recomment_router
 from api.endpoints.bot_chats_router import router as bot_chat_router
-from models.koalpha_loader import KoalphaLoader  # KoalphaLoader import 추가
+from models.model_loader import ModelLoader 
 
 from api.endpoints.discord_webhook_router import router as discord_router ## for Discord Webhook
 from utils.logger_discord import setup_logging
@@ -18,9 +18,9 @@ def parse_args():
     parser = argparse.ArgumentParser(description="텐텐 GPU 사용 모드 선택")
     parser.add_argument(
         "--mode",
-        choices=["colab", "gcp"],
+        choices=["colab", "gcp", "api"],
         default="colab",
-        help="LLM inference 모드 선택 (colab: Ngrok/Colab, gcp: GCP 서버 직접 추론)"
+        help="LLM inference 모드 선택 (colab: Ngrok/Colab, gcp: GCP 서버 직접 추론, api: gemini 2.0 flash api 사용)"
     )
     return parser.parse_args()
 
@@ -31,12 +31,12 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# === [수정] 서버 시작 시 KoalphaLoader를 FastAPI state에 싱글턴으로 등록 ===
+# === [수정] 서버 시작 시 ModelLoader를 FastAPI state에 싱글턴으로 등록 ===
 # 서버 실행 모드(LLM_MODE)는 CLI 인자에서 받아오므로, 아래는 임시 기본값
 llm_mode = os.environ.get("LLM_MODE", "colab")
-app.state.koalpha = KoalphaLoader(mode=llm_mode)
+app.state.model = ModelLoader(mode=llm_mode)
 # 이 코드는 서버 프로세스가 시작될 때 단 한 번만 실행되어,
-# app.state.koalpha에 KoalphaLoader 인스턴스(즉, vLLM 모델)가 로드됩니다.
+# app.state.model에 ModelLoader 인스턴스(즉, vLLM 모델)가 로드됩니다.
 # 이후 모든 요청에서 이 인스턴스를 재사용하므로, 매번 모델을 다시 로드하지 않습니다.
 
 # origins 설정
