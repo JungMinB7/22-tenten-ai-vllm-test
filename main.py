@@ -14,9 +14,9 @@ def parse_args():
     parser = argparse.ArgumentParser(description="텐텐 GPU 사용 모드 선택")
     parser.add_argument(
         "--mode",
-        choices=["colab", "gcp"],
+        choices=["colab", "gcp", "api"],
         default="colab",
-        help="LLM inference 모드 선택 (colab: Ngrok/Colab, gcp: GCP 서버 직접 추론)"
+        help="LLM inference 모드 선택 (colab: Ngrok/Colab, gcp: GCP 서버 직접 추론, api: gemini 2.0 flash api 사용)"
     )
     return parser.parse_args()
 
