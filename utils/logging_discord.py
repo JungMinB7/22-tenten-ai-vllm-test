@@ -4,10 +4,10 @@ import traceback
 import tempfile
 import re
 import os
+from dotenv import load_dotenv
 
-
-
-DISCORD_WEBHOOK_URL = "https://discord.com/api/webhooks/1373848962787967098/ARPztDKWyYBskpwU0J3LrRGCbjk5aLnxr78WFR5mOUoL7busIlkS98X-or8B0GSWtiJh" 
+load_dotenv(override=True)
+DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
 
 class DiscordWebhookHandler(logging.Handler):
     def emit(self, record):
