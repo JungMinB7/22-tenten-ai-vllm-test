@@ -26,8 +26,11 @@ class DiscordWebhookHandler(logging.Handler):
                     "finished server process",
                     "waiting for application shutdown",
                     "shutting down",
-                    "changes detected"])
+                    "changes detected"
+                    ])
                     or re.search(r"\b\d+\s+changes?\s+detected\b", log_entry)
+                    or re.search(r"\bhttp.*\b200\s+ok\b", log_entry)
+                    or re.search(r'\bhttp/1.1"\s+200\b', log_entry)
                 ): return
                 
 
