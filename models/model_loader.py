@@ -58,7 +58,7 @@ class ModelLoader:
             )
         if self.mode == "api-dev" or self.mode == "api-prod":
             if self.mode == "api-prod":
-                load_dotenv(dotenv_path='/secrets/.env')
+                load_dotenv(dotenv_path='/secrets/env')
             else:
                 load_dotenv(override=True)
 
