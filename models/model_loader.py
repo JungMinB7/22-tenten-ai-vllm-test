@@ -12,7 +12,7 @@ class ModelLoader:
 
         if self.mode == "gcp" or self.mode == "colab":
             self.model_path = "allganize/Llama-3-Alpha-Ko-8B-Instruct"
-        elif self.mode == "api":
+        elif self.mode == "api-dev" or self.mode == "api-prod":
             self.model_path = "models/gemini-2.0-flash"
 
         # colab/ngrok API 요청에 필요한 헤더 및 데이터
@@ -56,8 +56,12 @@ class ModelLoader:
                 max_tokens=self.max_tokens,
                 stop=self.stop 
             )
-        if self.mode == "api":
-            load_dotenv(override=True)
+        if self.mode == "api-dev" or self.mode == "api-prod":
+            if self.mode == "api-prod":
+                load_dotenv(dotenv_path='/secrets/.env')
+            else:
+                load_dotenv(override=True)
+
             self.client = OpenAI(
                 api_key=os.getenv("GEMINI_API_KEY"),
                 base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
@@ -121,7 +125,7 @@ class ModelLoader:
                     output_tokens = len(output_token_ids)
                     input_tokens = len(tokenizer(prompt)["input_ids"])
 
-                elif self.mode == "api":
+                elif self.mode == "api-dev" or self.mode == "api-prod":
                     response = self.client.chat.completions.create(
                         model=self.model_path, 
                         messages=messages,
@@ -149,7 +153,7 @@ class ModelLoader:
                         "max_num_seqs": 5,
                         "max_num_batched_tokens": 2048,
                     }
-                if self.mode == "api":
+                if self.mode == "api-dev" or self.mode == "api-prod":
                     log_model_parameters = {
                         "temperature": self.temperature,
                         "top_p": self.top_p,

@@ -6,7 +6,11 @@ import re
 import os
 from dotenv import load_dotenv
 
-load_dotenv(override=True)
+if os.environ.get("LLM_MODE") == "api-prod":
+    load_dotenv(dotenv_path='/secrets/.env')
+else:
+    load_dotenv(override=True)
+
 DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
 
 class DiscordWebhookHandler(logging.Handler):

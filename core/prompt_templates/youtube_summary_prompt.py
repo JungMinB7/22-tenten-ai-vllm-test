@@ -9,7 +9,10 @@ class YoutubeSummaryPrompt:
             mode : colab(default) / gcp
         """
 
-        load_dotenv(override=True)
+        if os.environ.get("LLM_MODE") == "api-prod":
+            load_dotenv(dotenv_path='/secrets/.env')
+        else:
+            load_dotenv(override=True)
 
         # Langfuse 초기화
         self.langfuse = Langfuse(
