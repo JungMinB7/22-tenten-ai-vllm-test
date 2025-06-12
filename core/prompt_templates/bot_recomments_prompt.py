@@ -9,7 +9,10 @@ from pathlib import Path
 class BotRecommentsPrompt:
     def __init__(self):
         # 소셜봇 프로필 정보
-        load_dotenv(override=True)
+        if os.environ.get("LLM_MODE") == "api-prod":
+            load_dotenv(dotenv_path='/secrets/.env')
+        else:
+            load_dotenv(override=True)
         
         # 소셜봇 페르소나 불러오기 시작
         persona_path_str = os.getenv("PERSONA_PATH")
