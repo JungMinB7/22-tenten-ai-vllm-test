@@ -18,9 +18,9 @@ def parse_args():
     parser = argparse.ArgumentParser(description="텐텐 GPU 사용 모드 선택")
     parser.add_argument(
         "--mode",
-        choices=["colab", "gcp", "api"],
+        choices=["colab", "gcp", "api-dev", "api-prod"],
         default="colab",
-        help="LLM inference 모드 선택 (colab: Ngrok/Colab, gcp: GCP 서버 직접 추론, api: gemini 2.0 flash api 사용)"
+        help="LLM inference 모드 선택 (colab: Ngrok/Colab, gcp: GCP 서버 직접 추론, api-dev: gemini 2.0 flash api 사용 및 로컬 환경변수 사용, api-prod: gemini 2.0 flash api 사용 및 GCP 환경변수 사용)"
     )
     return parser.parse_args()
 
@@ -74,7 +74,7 @@ if __name__ == "__main__":
     os.environ["LLM_MODE"] = args.mode
 
     reload_flag = True
-    if os.environ["LLM_MODE"] in ["gcp", "api"]:
+    if os.environ["LLM_MODE"] in ["gcp", "api-dev", "api-prod"]:
         reload_flag = False
 
     print(f"실행 모드: {args.mode}, reload : {reload_flag}")
