@@ -190,7 +190,7 @@ class GCPModelLoader(BaseModelLoader):
 
 
 class GeminiAPILoader(BaseModelLoader):
-    def __init__(self, mode, model_path, temperature, top_p, max_tokens, stop, api_key, base_url):
+    def __init__(self, mode, model_path, temperature, top_p, max_tokens, stop, base_url):
         self.mode = mode
         self.model_path = model_path
         self.temperature = temperature
@@ -204,7 +204,7 @@ class GeminiAPILoader(BaseModelLoader):
             load_dotenv(override=True)
 
         self.client = OpenAI(
-            api_key=api_key if api_key else os.getenv("GEMINI_API_KEY"),
+            api_key= os.getenv("GEMINI_API_KEY"),
             base_url=base_url
         )
 
@@ -220,7 +220,11 @@ class GeminiAPILoader(BaseModelLoader):
                 stop=self.stop
             )
 
+            print(f"DEBUG: response: {response}")
+
             content = response.choices[0].message.content
+
+            print(f"DEBUG: content: {content}")
 
             input_tokens = output_tokens = None
 
@@ -325,14 +329,14 @@ class ModelLoader:
                 max_num_batched_tokens=2048
             )
         elif mode == "api-dev" or mode == "api-prod":
+            print("ModelLoader init")
             self.loader = GeminiAPILoader(
                 mode=mode,
                 model_path="models/gemini-2.0-flash",
                 temperature=0.5,
                 top_p=0.5,
                 max_tokens=256,
-                stop=[],
-                api_key=None,
+                stop=["\n"],
                 base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
             )
         else:
