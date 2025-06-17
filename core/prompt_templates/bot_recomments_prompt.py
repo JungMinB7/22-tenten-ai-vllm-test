@@ -134,7 +134,7 @@ class BotRecommentsPrompt:
             for r in recomments:
                 if r.user.nickname == self.persona["nickname"]:
                     messages.append({
-                        "role": "aassistant",
+                        "role": "assistant",
                         "content": f"대댓글: [{r.user.nickname} from {r.user.class_name}] {r.content}"
                     })
                 else : 
