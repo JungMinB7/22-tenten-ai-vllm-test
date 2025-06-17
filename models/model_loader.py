@@ -199,7 +199,7 @@ class GeminiAPILoader(BaseModelLoader):
         self.stop = stop
 
         if self.mode == "api-prod":
-            load_dotenv(dotenv_path='/secrets/.env')
+            load_dotenv(dotenv_path='/secrets/env')
         else:
             load_dotenv(override=True)
 

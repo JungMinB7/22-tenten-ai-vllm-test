@@ -19,7 +19,7 @@ class BotPostsService:
         
         # Langfuse 초기화
         if os.environ.get("LLM_MODE") == "api-prod":
-            load_dotenv(dotenv_path='/secrets/.env')
+            load_dotenv(dotenv_path='/secrets/env')
         else:
             load_dotenv(override=True)
 
