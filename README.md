@@ -23,7 +23,14 @@ pip install -r requirements.txt
 ## 실행
 ### gcp
 ```bash
-python main.py mode --gcp
+python main.py --mode gcp
+```
+### api
+```bash
+python main.py --mode api-dev
+```
+```bash
+python main.py --mode api-prod
 ```
 ### local
 ```bash
