@@ -91,7 +91,7 @@ class BotRecommentsService:
             ## 후처리...
             print(f"content : {content}")
             content = self.clean_response(content)
-            print(f"content : {content}")
+            print(f"cleaned content : {content}")
 
             # 응답 데이터 구성
             bot_user = prompt.get_bot_user_info()
