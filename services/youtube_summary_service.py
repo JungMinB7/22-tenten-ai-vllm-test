@@ -18,6 +18,7 @@ from langfuse import Langfuse
 from datetime import datetime
 import traceback
 from fastapi import HTTPException
+from utils.logger import log_inference_to_langfuse # Langfuse 로깅 함수 임포트
 
 class YouTubeSummaryService:
     def __init__(self, app):
@@ -26,6 +27,7 @@ class YouTubeSummaryService:
         # FastAPI app의 state에서 model 싱글턴 인스턴스를 받아옴
         self.model = app.state.model
         self.mode = self.model.mode
+        print(f"MODE : {self.mode}")
 
         # Langfuse 초기화
         if os.environ.get("LLM_MODE") == "api-prod":
@@ -53,7 +55,8 @@ class YouTubeSummaryService:
         # Trace 시작
         trace = self.langfuse.trace(
             name="posts_youtube_service",
-            input={"url": url}
+            input={"url": url},
+            environment=self.mode
         )
 
         try : 
@@ -223,14 +226,46 @@ class YouTubeSummaryService:
             )
             end_time = datetime.now()
 
-            summary = response.get('content', None)
+            content = response.get('content', None)
 
-            chunk_summaries.append(summary)
-            prev_summary = summary
+            # Langfuse 로깅 추가
+            log_model_parameters = {
+                "temperature": self.model.loader.temperature,
+                "top_p": self.model.loader.top_p,
+                "max_tokens": self.model.loader.max_tokens,
+                "stop": self.model.loader.stop,
+            }
+            log_inference_to_langfuse(
+                trace=trace,
+                name="youtube_chunk_summary",
+                prompt=prompt_client,
+                messages=messages,
+                content=content,
+                model_name=self.model.loader.model_path,
+                model_parameters=log_model_parameters,
+                input_tokens=None,
+                output_tokens=None,
+                inference_time=(end_time - start_time).total_seconds(),
+                start_time=start_time,
+                end_time=end_time,
+                error=None
+            )
+
+            chunk_summaries.append(content)
+            prev_summary = content
+
+        # Langfuse 로깅 추가 (최종 요약)
+        log_model_parameters_final = {
+            "temperature": self.model.loader.temperature,
+            "top_p": self.model.loader.top_p,
+            "max_tokens": self.model.loader.max_tokens,
+            "stop": self.model.loader.stop,
+        }
 
         # 모든 청크 요약을 다시 통합 요약
         if len(chunk_summaries) == 1:
-            return chunk_summaries[0]
+            final_summary = chunk_summaries[0]
+
         else:
             # 통합 프롬프트
             prompt_client, messages = prompt_builder.create_final_messages(chunk_summaries)
@@ -240,10 +275,26 @@ class YouTubeSummaryService:
                 messages, trace=trace, start_time=start_time, prompt=prompt_client, name="final_summary"
             )
             end_time = datetime.now()
-
             final_summary = response.get('content', None)
 
-            return final_summary
+            
+        log_inference_to_langfuse(
+            trace=trace,
+            name="youtube_final_summary",
+            prompt=prompt_client,
+            messages=messages,
+            content=final_summary,
+            model_name=self.model.loader.model_path,
+            model_parameters=log_model_parameters_final,
+            input_tokens=None,
+            output_tokens=None,
+            inference_time=(end_time - start_time).total_seconds(),
+            start_time=start_time,
+            end_time=end_time,
+            error=None
+        )
+
+        return final_summary
     
 # #파일을 직접 실행할 때 사용
 # async def main():
