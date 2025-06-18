@@ -1,7 +1,6 @@
 import logging
 import os
-from schemas.bot_recomments_schema import BotRecommentsRequest, BotRecommentsResponse, BotRecommentResponseData
-from schemas.bot_common_schema import UserInfoResponse
+from schemas.bot_recomments_schema import BotRecommentsRequest, BotRecommentsResponse, BotRecommentResponseData, UserInfoResponse
 from core.prompt_templates.bot_recomments_prompt import BotRecommentsPrompt
 from utils.error_handler import InvalidQueryParameterError, InternalServerError
 
@@ -10,6 +9,8 @@ from dotenv import load_dotenv
 from langfuse import Langfuse
 
 import re
+from utils.logger import log_inference_to_langfuse
+
 class BotRecommentsService:
     def __init__(self, app):
         self.logger = logging.getLogger(__name__)
@@ -17,7 +18,7 @@ class BotRecommentsService:
         self.model = app.state.model
         self.mode = self.model.mode
         print(f"MODE : {self.mode}")
-        
+
         # Langfuse 초기화
         if os.environ.get("LLM_MODE") == "api-prod":
             load_dotenv(dotenv_path='/secrets/env')
@@ -76,6 +77,14 @@ class BotRecommentsService:
                 )
                 raise InvalidQueryParameterError(field="body")
 
+            # Langfuse 로깅 추가
+            log_model_parameters = {
+                "temperature": self.model.loader.temperature,
+                "top_p": self.model.loader.top_p,
+                "max_tokens": self.model.loader.max_tokens,
+                "stop": self.model.loader.stop,
+            }
+
             # 프롬프트 생성 및 AI 호출
             prompt = BotRecommentsPrompt()
             prompt_client, messages = prompt.json_to_messages(request, self.mode)
@@ -87,11 +96,52 @@ class BotRecommentsService:
             )
             end_time = datetime.now()
 
-            content = model_response.get("content", "")
-            ## 후처리...
-            print(f"content : {content}")
-            content = self.clean_response(content)
+            original_content = model_response.get("content", "")
+
+            log_inference_to_langfuse(
+                trace=trace,
+                name="generate_bot_recomment_original",
+                prompt=prompt_client,
+                messages=messages,
+                content=original_content,
+                model_name=self.model.loader.model_path,
+                model_parameters=log_model_parameters,
+                input_tokens=None,
+                output_tokens=None,
+                inference_time=(end_time - start_time).total_seconds(),
+                start_time=start_time,
+                end_time=end_time,
+                error=None
+            )
+
+            print(f"content : {original_content}")
+            print(f"inference_time : {(end_time - start_time).total_seconds()}")
+            
+            start_time = datetime.now()
+            content = self.clean_response(original_content)
+            end_time = datetime.now()
+
+            log_inference_to_langfuse(
+                trace=trace,
+                name="generate_bot_recomment_cleaned",
+                prompt=prompt_client,
+                messages=messages,
+                content=content,
+                model_name=self.model.loader.model_path,
+                model_parameters=log_model_parameters,
+                input_tokens=None,
+                output_tokens=None,
+                inference_time=(end_time - start_time).total_seconds(),
+                start_time=start_time,
+                end_time=end_time,
+                error=None
+            )
+
             print(f"cleaned content : {content}")
+            print(f"inference_time : {(end_time - start_time).total_seconds()}")
+
+            # 최종 결과 기록
+            trace.update(output=content)
 
             # 응답 데이터 구성
             bot_user = prompt.get_bot_user_info()
@@ -120,7 +170,9 @@ class BotRecommentsService:
                 error=str(e),
                 metadata={
                     "error_type": type(e).__name__,
-                    "messages": messages if 'messages' in locals() else None
+                    "messages": messages if 'messages' in locals() else None,
+                    "original_content": original_content if 'original_content' in locals() else None,
+                    "cleaned_content": content if 'content' in locals() else None
                 }
             )
             raise InternalServerError()

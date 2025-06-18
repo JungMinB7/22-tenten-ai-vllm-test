@@ -109,34 +109,11 @@ class GCPModelLoader(BaseModelLoader):
             end_time = time.time()
             inference_time = end_time - start_time
 
-            log_model_parameters = {
-                "temperature": self.temperature,
-                "top_p": self.top_p,
-                "max_tokens": self.max_tokens,
-                "stop": self.stop,
-                "dtype": "half",
-                "tensor_parallel_size": self.model_vllm.tensor_parallel_size,
-                "max_model_len": self.model_vllm.max_model_len,
-                "gpu_memory_utilization": self.model_vllm.gpu_memory_utilization,
-                "max_num_seqs": self.model_vllm.max_num_seqs,
-                "max_num_batched_tokens": self.model_vllm.max_num_batched_tokens,
+            return {
+                "status_code": 200,
+                "url": "local_vllm",
+                "content": content
             }
-
-            log_inference_to_langfuse(
-                trace=trace,
-                name=name,
-                prompt=prompt,
-                messages=messages,
-                content=content,
-                model_name=self.model_path,
-                model_parameters=log_model_parameters,
-                input_tokens=input_tokens,
-                output_tokens=output_tokens,
-                inference_time=inference_time,
-                start_time=start_time,
-                end_time=end_time,
-                error=None
-            )
 
         except Exception as e:
             import traceback
@@ -147,32 +124,6 @@ class GCPModelLoader(BaseModelLoader):
             }
             from datetime import datetime
             gen_end = datetime.now()
-            log_inference_to_langfuse(
-                trace=trace,
-                name=name,
-                prompt=prompt,
-                messages=messages,
-                content=None,
-                model_name=self.model_path,
-                model_parameters={
-                    "temperature": self.temperature,
-                    "top_p": self.top_p,
-                    "max_tokens": self.max_tokens,
-                    "stop": self.stop,
-                    "dtype": "half",
-                    "tensor_parallel_size": self.model_vllm.tensor_parallel_size,
-                    "max_model_len": self.model_vllm.max_model_len,
-                    "gpu_memory_utilization": self.model_vllm.gpu_memory_utilization,
-                    "max_num_seqs": self.model_vllm.max_num_seqs,
-                    "max_num_batched_tokens": self.model_vllm.max_num_batched_tokens,
-                },
-                input_tokens=0,
-                output_tokens=0,
-                inference_time=0.0,
-                start_time=start_time,
-                end_time=gen_end,
-                error=error_info
-            )
             print(f"ChatCompletion error: {e}")
             return {
                 "status_code": 500,
@@ -231,28 +182,11 @@ class GeminiAPILoader(BaseModelLoader):
             end_time = time.time()
             inference_time = end_time - start_time
 
-            log_model_parameters = {
-                "temperature": self.temperature,
-                "top_p": self.top_p,
-                "max_tokens": self.max_tokens,
-                "stop": self.stop,
+            return {
+                "status_code": 200,
+                "url": "local_api",
+                "content": content
             }
-
-            log_inference_to_langfuse(
-                trace=trace,
-                name=name,
-                prompt=prompt,
-                messages=messages,
-                content=content,
-                model_name=self.model_path,
-                model_parameters=log_model_parameters,
-                input_tokens=input_tokens,
-                output_tokens=output_tokens,
-                inference_time=inference_time,
-                start_time=start_time,
-                end_time=end_time,
-                error=None
-            )
 
         except Exception as e:
             import traceback
@@ -263,26 +197,6 @@ class GeminiAPILoader(BaseModelLoader):
             }
             from datetime import datetime
             gen_end = datetime.now()
-            log_inference_to_langfuse(
-                trace=trace,
-                name=name,
-                prompt=prompt,
-                messages=messages,
-                content=None,
-                model_name=self.model_path,
-                model_parameters={
-                    "temperature": self.temperature,
-                    "top_p": self.top_p,
-                    "max_tokens": self.max_tokens,
-                    "stop": self.stop,
-                },
-                input_tokens=0,
-                output_tokens=0,
-                inference_time=0.0,
-                start_time=start_time,
-                end_time=gen_end,
-                error=error_info
-            )
             print(f"ChatCompletion error: {e}")
             return {
                 "status_code": 500,
