@@ -56,6 +56,7 @@ class YouTubeSummaryService:
         trace = self.langfuse.trace(
             name="posts_youtube_service",
             input={"url": url},
+            environment=self.mode
         )
 
         try : 

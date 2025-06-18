@@ -54,7 +54,8 @@ class BotPostsService:
                 "board_type": request.board_type,
                 "post_count": len(request.posts)
             },
-            input = request.posts
+            input = request.posts,
+            environment=self.mode
         )
         
         try:

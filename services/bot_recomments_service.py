@@ -58,7 +58,8 @@ class BotRecommentsService:
             metadata={
                 "board_type": request.board_type,
             },
-            input = request
+            input = request,
+            environment=self.mode
         )
         try:
             # 필수 필드 검증: board_type, post, comment (recomments는 Optional)
