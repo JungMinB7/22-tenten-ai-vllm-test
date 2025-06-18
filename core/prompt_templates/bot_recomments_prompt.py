@@ -10,7 +10,7 @@ class BotRecommentsPrompt:
     def __init__(self):
         # 소셜봇 프로필 정보
         if os.environ.get("LLM_MODE") == "api-prod":
-            load_dotenv(dotenv_path='/secrets/.env')
+            load_dotenv(dotenv_path='/secrets/env')
         else:
             load_dotenv(override=True)
         
@@ -134,7 +134,7 @@ class BotRecommentsPrompt:
             for r in recomments:
                 if r.user.nickname == self.persona["nickname"]:
                     messages.append({
-                        "role": "aassistant",
+                        "role": "assistant",
                         "content": f"대댓글: [{r.user.nickname} from {r.user.class_name}] {r.content}"
                     })
                 else : 
