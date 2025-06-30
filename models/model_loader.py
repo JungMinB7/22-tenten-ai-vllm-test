@@ -2,13 +2,13 @@ import requests
 import os, time
 from dotenv import load_dotenv
 from utils.logger import log_inference_to_langfuse
-
+from vllm.lora.request import LoRARequest
 from openai import OpenAI
 from abc import ABC, abstractmethod
 
 class BaseModelLoader(ABC):
     @abstractmethod
-    def get_response(self, messages, trace, start_time=None, prompt=None, name="vllm-inference"):
+    def get_response(self, messages, trace, start_time=None, prompt=None, name="vllm-inference", adapter_type="youtube_summary"):
         pass
 
 class ColabModelLoader(BaseModelLoader):
@@ -28,7 +28,7 @@ class ColabModelLoader(BaseModelLoader):
             "stop": self.stop
         }
 
-    def get_response(self, messages, trace, start_time=None, prompt=None, name="colab-inference"):
+    def get_response(self, messages, trace, start_time=None, prompt=None, name="colab-inference", adapter_type="youtube_summary"):
         load_dotenv(override=True)
         base_url = os.getenv('MODEL_NGROK_URL')
 
@@ -64,14 +64,23 @@ class GCPModelLoader(BaseModelLoader):
         from vllm import LLM, SamplingParams
         from transformers import AutoTokenizer
 
+        load_dotenv(override=True)
+
         self.model_path = model_path
         self.temperature = temperature
         self.top_p = top_p
         self.max_tokens = max_tokens
         self.stop = stop
 
+        hf_token = os.getenv('HF_TOKEN')
+        if hf_token:
+            os.environ['HF_TOKEN'] = hf_token
+            os.environ['HUGGING_FACE_HUB_TOKEN'] = hf_token
+
         self.model_vllm = LLM(
             model=self.model_path,
+            enable_lora=True,
+            max_loras=2,
             dtype="half",
             trust_remote_code=True,
             tensor_parallel_size=tensor_parallel_size,
@@ -87,9 +96,32 @@ class GCPModelLoader(BaseModelLoader):
             max_tokens=self.max_tokens,
             stop=self.stop
         )
-        self.tokenizer = AutoTokenizer.from_pretrained(self.model_path)
+        self.tokenizer = AutoTokenizer.from_pretrained(
+            self.model_path,
+            token=hf_token
+        )
+        
+        self.lora_adapters = {
+            "youtube_summary" : LoRARequest(
+                "article_summary", 
+                1, 
+                "KakaoBase/HyperCLOVAX-SEED-article-summary-LoRA-v1.0"
+            ),
+            "social_bot" : LoRARequest(
+                "sns_chat",
+                2,
+                "KakaoBase/HyperCLOVAX-SEED-SNS-chat-LoRA-v1.0"
+            )
+        }
 
-    def get_response(self, messages, trace, start_time=None, prompt=None, name="vllm-inference"):
+        print("🔧 사용 가능한 LoRA 어댑터:")
+        for adapter_name, adapter in self.lora_adapters.items():
+            print(f"  - {adapter_name}: {adapter.lora_name} (ID: {adapter.lora_int_id})")
+
+    def get_response(self, messages, trace, start_time=None, prompt=None, name="vllm-inference", adapter_type="youtube_summary"):
+        """
+        adapter_type: "youtube_summary" 또는 "social_bot"
+        """
         prompt = self.tokenizer.apply_chat_template(
             messages,
             add_generation_prompt=True,
@@ -99,7 +131,27 @@ class GCPModelLoader(BaseModelLoader):
         start_time = time.time()
 
         try:
-            outputs = self.model_vllm.generate(prompt, self.sampling_params)
+            # 🎯 어댑터 타입에 따라 선택
+            selected_lora = self.lora_adapters.get(adapter_type)
+            if not selected_lora:
+                raise ValueError(f"Unknown adapter type: {adapter_type}")
+            
+            print(f"🔄 사용 중인 LoRA 어댑터: {adapter_type} ({selected_lora.lora_name})")
+
+            if adapter_type == "youtube_summary":
+                outputs = self.model_vllm.generate(
+                prompt, 
+                self.sampling_params, 
+                lora_request=selected_lora
+            )
+            elif adapter_type == "social_bot":
+                #stop 관련 코드 추가/수정할 부분
+                outputs = self.model_vllm.generate(
+                prompt, 
+                self.sampling_params, 
+                lora_request=selected_lora
+            )
+
             content = outputs[0].outputs[0].text
 
             output_token_ids = outputs[0].outputs[0].token_ids
@@ -112,7 +164,8 @@ class GCPModelLoader(BaseModelLoader):
             return {
                 "status_code": 200,
                 "url": "local_vllm",
-                "content": content
+                "content": content,
+                "adapter_used": adapter_type
             }
 
         except Exception as e:
@@ -136,7 +189,8 @@ class GCPModelLoader(BaseModelLoader):
         return {
             "status_code": 200,
             "url": "local_vllm",
-            "content": content
+            "content": content,
+            "adapter_used": adapter_type
         }
 
 
@@ -159,7 +213,7 @@ class GeminiAPILoader(BaseModelLoader):
             base_url=base_url
         )
 
-    def get_response(self, messages, trace, start_time=None, prompt=None, name="api-inference"):
+    def get_response(self, messages, trace, start_time=None, prompt=None, name="api-inference", adapter_type="youtube_summary"):
         start_time = time.time()
 
         try:
@@ -231,7 +285,7 @@ class ModelLoader:
             )
         elif mode == "gcp":
             self.loader = GCPModelLoader(
-                model_path="allganize/Llama-3-Alpha-Ko-8B-Instruct",
+                model_path="naver-hyperclovax/HyperCLOVAX-SEED-Text-Instruct-1.5B",
                 temperature=0.5,
                 top_p=0.5,
                 max_tokens=256,
@@ -256,8 +310,8 @@ class ModelLoader:
         else:
             raise ValueError(f"Unsupported mode: {mode}")
 
-    def get_response(self, messages, trace, start_time=None, prompt=None, name="inference"):
+    def get_response(self, messages, trace, start_time=None, prompt=None, name="inference", adapter_type="youtube_summary"):
         if self.loader:
-            return self.loader.get_response(messages, trace, start_time, prompt, name)
+            return self.loader.get_response(messages, trace, start_time, prompt, name, adapter_type)
         else:
             raise RuntimeError("Model loader not initialized.")
