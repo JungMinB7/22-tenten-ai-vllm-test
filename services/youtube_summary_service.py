@@ -222,7 +222,7 @@ class YouTubeSummaryService:
             
             start_time = datetime.now() # Generation 시작 시간
             response = self.model.get_response(
-                messages, trace=trace, start_time=start_time, prompt=prompt_client, name="chunk_summary"
+                messages, trace=trace, start_time=start_time, prompt=prompt_client, name="chunk_summary", adapter_type="youtube_summary"
             )
             end_time = datetime.now()
 
@@ -272,7 +272,7 @@ class YouTubeSummaryService:
 
             start_time = datetime.now() # Generation 시작 시간
             response = self.model.get_response(
-                messages, trace=trace, start_time=start_time, prompt=prompt_client, name="final_summary"
+                messages, trace=trace, start_time=start_time, prompt=prompt_client, name="final_summary", adapter_type="youtube_summary"
             )
             end_time = datetime.now()
             final_summary = response.get('content', None)
