@@ -3,7 +3,7 @@
 ## 가상환경 
 ### 가상환경 생성
 ```bash
-python -m venv .venv
+python3 -m venv .venv
 ```
 ### 가상환경 활성화
 ```bash
