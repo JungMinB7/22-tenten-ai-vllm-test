@@ -136,27 +136,40 @@ class GCPModelLoader(BaseModelLoader):
             if not selected_lora:
                 raise ValueError(f"Unknown adapter type: {adapter_type}")
             
-            print(f"🔄 사용 중인 LoRA 어댑터: {adapter_type} ({selected_lora.lora_name})")
+            print(f"사용 중인 LoRA 어댑터: {adapter_type} ({selected_lora.lora_name})")
 
             if adapter_type == "youtube_summary":
+                print(f"DEBUG: Youtube summary lora_request: {selected_lora.lora_name}, ID: {selected_lora.lora_int_id}")
                 outputs = self.model_vllm.generate(
                 prompt, 
                 self.sampling_params, 
                 lora_request=selected_lora
             )
             elif adapter_type == "social_bot":
-                #stop 관련 코드 추가/수정할 부분
-                outputs = self.model_vllm.generate(
-                prompt, 
-                self.sampling_params, 
-                lora_request=selected_lora
-            )
 
-            content = outputs[0].outputs[0].text
+                print(f"DEBUG: Social bot lora_request: {selected_lora.lora_name}, ID: {selected_lora.lora_int_id}")
+
+                try:
+                    outputs = self.model_vllm.generate(
+                        prompt, 
+                        self.sampling_params, 
+                        lora_request=selected_lora,
+                    )
+                except Exception as gen_e:
+                    print(f"ERROR: vllm generate call failed: {gen_e}")
+                    raise # 다시 예외를 발생시켜 상위 except 블록에서 처리하도록 함
+
+            # outputs 객체 유효성 검사 및 디버그 출력 추가
+            if not outputs or len(outputs) == 0 or not hasattr(outputs[0], 'outputs') or len(outputs[0].outputs) == 0:
+                raise ValueError("Model did not generate any output or output structure is invalid.")
 
             output_token_ids = outputs[0].outputs[0].token_ids
             output_tokens = len(output_token_ids)
-            input_tokens = len(self.tokenizer(prompt)["input_ids"])
+
+            content = outputs[0].outputs[0].text
+
+            tokenization_result = self.tokenizer(prompt)
+            input_tokens = len(tokenization_result["input_ids"])
 
             end_time = time.time()
             inference_time = end_time - start_time
@@ -289,7 +302,7 @@ class ModelLoader:
                 temperature=0.5,
                 top_p=0.5,
                 max_tokens=256,
-                stop=["\n\n", "</s>"],
+                stop=["\n\n", "</s>", "\n"],
                 tensor_parallel_size=1,
                 max_model_len=8192,
                 gpu_memory_utilization=0.9,
