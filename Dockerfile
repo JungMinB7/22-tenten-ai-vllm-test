@@ -7,8 +7,8 @@ RUN pip install --no-cache-dir -r requirements-gcp.txt
 
 COPY . .
 
+RUN chmod +x /entrypoint.sh
+
 EXPOSE 8000
 
-ENV LLM_MODE="api-prod"
-
-CMD ["sh", "-c", "python3.11 main.py --mode api-prod"]
+ENTRYPOINT ["/entrypoint.sh"]
