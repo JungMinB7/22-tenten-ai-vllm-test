@@ -49,12 +49,12 @@ class BotRecommentsService:
         self.mode = self.model.mode
         print(f"MODE : {self.mode}")
 
-        # Langfuse 초기화
-        if os.environ.get("LLM_MODE") == "api-prod":
+        if os.environ.get("LLM_MODE") == "api-prod" or os.environ.get("LLM_MODE") == "gcp-prod":
             load_dotenv(dotenv_path='/secrets/env')
         else:
             load_dotenv(override=True)
 
+        # Langfuse 초기화
         self.langfuse = Langfuse(
             secret_key=os.getenv('LANGFUSE_SECRET_KEY'),
             public_key=os.getenv('LANGFUSE_PUBLIC_KEY'),
