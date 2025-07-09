@@ -60,17 +60,21 @@ class ColabModelLoader(BaseModelLoader):
 
 
 class GCPModelLoader(BaseModelLoader):
-    def __init__(self, model_path, temperature, top_p, max_tokens, stop, tensor_parallel_size, max_model_len, gpu_memory_utilization, max_num_seqs, max_num_batched_tokens):
+    def __init__(self, mode, model_path, temperature, top_p, max_tokens, stop, tensor_parallel_size, max_model_len, gpu_memory_utilization, max_num_seqs, max_num_batched_tokens):
         from vllm import LLM, SamplingParams
         from transformers import AutoTokenizer
 
-        load_dotenv(override=True)
-
+        self.mode = mode
         self.model_path = model_path
         self.temperature = temperature
         self.top_p = top_p
         self.max_tokens = max_tokens
         self.stop = stop
+
+        if self.mode == "gcp-prod":
+            load_dotenv(dotenv_path='/secrets/env')
+        else:
+            load_dotenv(override=True)
 
         hf_token = os.getenv('HF_TOKEN')
         if hf_token:
@@ -296,8 +300,9 @@ class ModelLoader:
                     "Authorization": "Bearer dummy-key"
                 }
             )
-        elif mode == "gcp":
+        elif mode == "gcp-dev" or mode == "gcp-prod":
             self.loader = GCPModelLoader(
+                mode=mode,
                 model_path="naver-hyperclovax/HyperCLOVAX-SEED-Text-Instruct-1.5B",
                 temperature=0.5,
                 top_p=0.5,
