@@ -14,6 +14,8 @@ from utils.logger_discord import setup_logging
 from utils.exception_handler import register_exception_handlers
 import json
 from datetime import datetime
+from contextlib import asynccontextmanager
+from core.sse_manager import sse_manager
 
 # CLI 인자 파싱 함수 추가
 def parse_args():
@@ -26,21 +28,27 @@ def parse_args():
     )
     return parser.parse_args()
 
+# [REFACTOR] Lifespan 이벤트를 사용하여 모델 로딩 시점 제어
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # 서버 시작 시 실행
+    print("서버 시작: 모델 및 SSEManager 로딩을 시작합니다.")
+    llm_mode = os.environ.get("LLM_MODE", "colab")
+    app.state.model = ModelLoader(mode=llm_mode)
+    app.state.sse_manager = sse_manager
+    print("서버 시작: 모델 및 SSEManager 로딩 완료.")
+    yield
+    # 서버 종료 시 실행 (필요 시 리소스 정리)
+    print("서버 종료.")
+
+
 # FastAPI 애플리케이션 초기화
 app = FastAPI(
     title="텐텐 AI API",
     description="kakaobase 플랫폼을 위한 AI 기능",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan  # Lifespan 관리자 등록
 )
-
-# === [수정] 서버 시작 시 ModelLoader, SSEManager를 FastAPI state에 싱글턴으로 등록 ===
-from core.sse_manager import sse_manager
-llm_mode = os.environ.get("LLM_MODE", "colab")
-app.state.model = ModelLoader(mode=llm_mode)
-app.state.sse_manager = sse_manager
-# 이 코드는 서버 프로세스가 시작될 때 단 한 번만 실행되어,
-# app.state.model에 ModelLoader 인스턴스(즉, vLLM 모델)가 로드됩니다.
-# 이후 모든 요청에서 이 인스턴스를 재사용하므로, 매번 모델을 다시 로드하지 않습니다.
 
 # origins 설정
 origins = [
