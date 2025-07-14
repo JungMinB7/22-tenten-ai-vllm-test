@@ -48,6 +48,15 @@ class BotChatsService:
             for m in memory.chat_memory.messages
         ]
 
+    def delete_memory(self, stream_id: str):
+        """
+        stream_id별 ConversationBufferMemory 인스턴스를 메모리에서 삭제 (중단/파기)
+        Args:
+            stream_id (str): 대화 스트림 ID
+        """
+        if stream_id in self.memory_dict:
+            del self.memory_dict[stream_id]
+
     async def generate_bot_chat(self, request: BotChatsRequest) -> BotChatsResponse:
         """
         소셜봇 채팅 메시지를 생성하는 서비스
