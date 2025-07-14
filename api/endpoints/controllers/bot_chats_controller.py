@@ -10,8 +10,8 @@ class BotChatsController:
 
     async def create_bot_chat(self, request: BotChatsRequest):
         try:
-            # 서비스 계층 호출
-            result = await self.service.generate_bot_chat(request.chat_room_id, request.messages)
+            # 서비스 계층 호출 (request 전체를 넘김)
+            result = await self.service.generate_bot_chat(request)
             return result
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
