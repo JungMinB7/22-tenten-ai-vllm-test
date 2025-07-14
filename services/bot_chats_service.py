@@ -7,17 +7,23 @@ from langchain.memory import ConversationBufferMemory
 
 class BotChatsService:
     def __init__(self, app):
+        """
+        BotChatsService 생성자
+        - FastAPI app의 state에서 모델 싱글턴 인스턴스를 받아옴
+        - stream_id별 대화 메모리(ConversationBufferMemory) 딕셔너리 초기화
+        """
         self.logger = logging.getLogger(__name__)
-        # FastAPI app의 state에서 model 싱글턴 인스턴스를 받아옴
         self.model = app.state.model
-
-        # 각 stream_id별로 ConversationBufferMemory(k=5) 인스턴스를 관리
         self.memory_dict = {}  # key: stream_id, value: ConversationBufferMemory
         self.memory_k = 5  # 최근 5개 대화만 유지
 
     def get_memory(self, stream_id: str):
         """
         stream_id별 ConversationBufferMemory 인스턴스를 반환하거나 새로 생성
+        Args:
+            stream_id (str): 대화 스트림 ID
+        Returns:
+            ConversationBufferMemory: 해당 stream_id의 메모리 인스턴스
         """
         if stream_id not in self.memory_dict:
             self.memory_dict[stream_id] = ConversationBufferMemory(k=self.memory_k, return_messages=True)
@@ -57,6 +63,15 @@ class BotChatsService:
         if stream_id in self.memory_dict:
             del self.memory_dict[stream_id]
 
+    def reset_memory(self, stream_id: str):
+        """
+        stream_id별 ConversationBufferMemory 인스턴스를 완전히 초기화(리셋)
+        Args:
+            stream_id (str): 대화 스트림 ID
+        """
+        if stream_id in self.memory_dict:
+            self.memory_dict[stream_id] = ConversationBufferMemory(k=self.memory_k, return_messages=True)
+
     async def generate_bot_chat(self, request: BotChatsRequest) -> BotChatsResponse:
         """
         소셜봇 채팅 메시지를 생성하는 서비스
@@ -65,6 +80,14 @@ class BotChatsService:
         3. 최근 대화 맥락을 LLM 프롬프트로 활용하여 AI 응답을 생성한다.
         4. 생성된 AI 응답도 메모리에 추가한다.
         5. 예외 발생 시 해당 stream_id의 메모리를 삭제한다.
+
+        
+        Args:
+            request (BotChatsRequest): 채팅 요청 객체
+        Returns:
+            BotChatsResponse: 생성된 채팅 응답
+        Raises:
+            Exception: LLM 호출 등 처리 중 에러 발생 시
         """
         stream_id = request.chat_room_id
         try:
