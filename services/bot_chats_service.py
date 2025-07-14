@@ -51,20 +51,33 @@ class BotChatsService:
     async def generate_bot_chat(self, request: BotChatsRequest) -> BotChatsResponse:
         """
         소셜봇 채팅 메시지를 생성하는 서비스
+        1. stream_id별 대화 기록을 불러온다.
+        2. 유저 메시지를 메모리에 추가한다.
+        3. 최근 대화 맥락을 LLM 프롬프트로 활용하여 AI 응답을 생성한다.
+        4. 생성된 AI 응답도 메모리에 추가한다.
         """
         try:
-            # 채팅 기록 분석
-            # context = self._analyze_chat_history(chat_room_id, messages)
-            
-            # TODO: 여기에 실제 AI 모델을 통한 채팅 메시지 생성 로직 구현
-            # 현재는 임시 응답 반환
-            
-            # model_response = self.model.get_response(messages)
+            stream_id = request.chat_room_id
+            messages = request.messages
+            # 1. 유저 메시지(가장 최근 메시지)를 메모리에 추가
+            for msg in messages:
+                self.add_message_to_memory(stream_id, msg.role, msg.content)
+            # 2. 최근 대화 맥락을 LLM 프롬프트로 활용
+            recent_messages = self.get_recent_messages(stream_id)
+            # 3. LLM 호출 (social_bot 어댑터 사용)
+            model_response = self.model.get_response(
+                messages=recent_messages,
+                trace=None,
+                adapter_type="social_bot"
+            )
+            ai_content = model_response.get("content", "")
+            # 4. AI 응답도 메모리에 추가
+            self.add_message_to_memory(stream_id, "ai", ai_content)
             return {
                 "status": "success",
                 "message": "Bot chat message generated successfully",
                 "data": {
-                    "content": "임시 소셜봇 채팅 메시지입니다."
+                    "content": ai_content
                 }
             }
         except Exception as e:
