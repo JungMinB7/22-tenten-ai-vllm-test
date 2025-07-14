@@ -141,7 +141,7 @@ class BotChatsService:
             )
             ai_content = model_response.get("content", "")
 
-            for token in ai_content.split():
+            for token in ai_content:
                 stream_data = {
                     "stream_id": stream_id,
                     "message": token,
