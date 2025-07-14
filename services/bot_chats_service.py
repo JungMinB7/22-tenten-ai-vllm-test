@@ -64,9 +64,10 @@ class BotChatsService:
         2. 유저 메시지를 메모리에 추가한다.
         3. 최근 대화 맥락을 LLM 프롬프트로 활용하여 AI 응답을 생성한다.
         4. 생성된 AI 응답도 메모리에 추가한다.
+        5. 예외 발생 시 해당 stream_id의 메모리를 삭제한다.
         """
+        stream_id = request.chat_room_id
         try:
-            stream_id = request.chat_room_id
             messages = request.messages
             # 1. 유저 메시지(가장 최근 메시지)를 메모리에 추가
             for msg in messages:
@@ -91,4 +92,6 @@ class BotChatsService:
             }
         except Exception as e:
             self.logger.error(f"Error generating bot chat message: {str(e)}")
+            # 5. 예외 발생 시 해당 stream_id의 메모리를 삭제
+            self.delete_memory(stream_id)
             raise e
