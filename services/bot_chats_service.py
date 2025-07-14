@@ -23,6 +23,31 @@ class BotChatsService:
             self.memory_dict[stream_id] = ConversationBufferMemory(k=self.memory_k, return_messages=True)
         return self.memory_dict[stream_id]
 
+    def add_message_to_memory(self, stream_id: str, role: str, content: str):
+        """
+        stream_id별 메모리에 메시지를 추가
+        Args:
+            stream_id (str): 대화 스트림 ID
+            role (str): 'user' 또는 'ai' 등 역할
+            content (str): 메시지 내용
+        """
+        memory = self.get_memory(stream_id)
+        memory.save_context({"role": role}, {"content": content})
+
+    def get_recent_messages(self, stream_id: str):
+        """
+        stream_id별 최근 대화 기록(최대 5개)을 반환
+        Returns:
+            List[dict]: [{role, content}, ...]
+        """
+        memory = self.get_memory(stream_id)
+        # ConversationBufferMemory의 chat_memory.messages는 Message 객체 리스트
+        # Message 객체는 .type (role), .content 속성 보유
+        return [
+            {"role": m.type, "content": m.content}
+            for m in memory.chat_memory.messages
+        ]
+
     async def generate_bot_chat(self, request: BotChatsRequest) -> BotChatsResponse:
         """
         소셜봇 채팅 메시지를 생성하는 서비스
