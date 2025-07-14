@@ -1,9 +1,12 @@
 from typing import List
 import logging
-from schemas.bot_chats_schema import BotChatsRequest, BotChatsResponse, BotChatResponseData, UserInfoResponse
+from schemas.bot_chats_schema import BotChatsRequest, BotChatsResponse, BotChatResponseData, UserInfoResponse, BotChatQueueRequest
 import os
 from models.model_loader import ModelLoader
 from langchain.memory import ConversationBufferMemory
+import json
+from datetime import datetime
+from core.sse_manager import sse_manager
 
 class BotChatsService:
     def __init__(self, app):
@@ -47,8 +50,6 @@ class BotChatsService:
             List[dict]: [{role, content}, ...]
         """
         memory = self.get_memory(stream_id)
-        # ConversationBufferMemory의 chat_memory.messages는 Message 객체 리스트
-        # Message 객체는 .type (role), .content 속성 보유
         return [
             {"role": m.type, "content": m.content}
             for m in memory.chat_memory.messages
@@ -63,58 +64,106 @@ class BotChatsService:
         if stream_id in self.memory_dict:
             del self.memory_dict[stream_id]
 
-    def reset_memory(self, stream_id: str):
-        """
-        stream_id별 ConversationBufferMemory 인스턴스를 완전히 초기화(리셋)
-        Args:
-            stream_id (str): 대화 스트림 ID
-        """
-        if stream_id in self.memory_dict:
-            self.memory_dict[stream_id] = ConversationBufferMemory(k=self.memory_k, return_messages=True)
-
+    # ==================================================================================
+    # 아래의 generate_bot_chat, stream_bot_chat는 현재 API에서 사용되지 않는 레거시 함수일 수 있습니다.
+    # 하지만 명세 통일을 위해 chat_room_id -> stream_id로 수정합니다.
+    # ==================================================================================
     async def generate_bot_chat(self, request: BotChatsRequest) -> BotChatsResponse:
         """
-        소셜봇 채팅 메시지를 생성하는 서비스
-        1. stream_id별 대화 기록을 불러온다.
-        2. 유저 메시지를 메모리에 추가한다.
-        3. 최근 대화 맥락을 LLM 프롬프트로 활용하여 AI 응답을 생성한다.
-        4. 생성된 AI 응답도 메모리에 추가한다.
-        5. 예외 발생 시 해당 stream_id의 메모리를 삭제한다.
-
-        
-        Args:
-            request (BotChatsRequest): 채팅 요청 객체
-        Returns:
-            BotChatsResponse: 생성된 채팅 응답
-        Raises:
-            Exception: LLM 호출 등 처리 중 에러 발생 시
+        [LEGACY] 소셜봇 채팅 메시지를 생성하는 서비스
         """
-        stream_id = request.chat_room_id
+        # [FIX] chat_room_id -> stream_id
+        stream_id = request.stream_id 
         try:
             messages = request.messages
-            # 1. 유저 메시지(가장 최근 메시지)를 메모리에 추가
             for msg in messages:
                 self.add_message_to_memory(stream_id, msg.role, msg.content)
-            # 2. 최근 대화 맥락을 LLM 프롬프트로 활용
             recent_messages = self.get_recent_messages(stream_id)
-            # 3. LLM 호출 (social_bot 어댑터 사용)
             model_response = self.model.get_response(
                 messages=recent_messages,
                 trace=None,
                 adapter_type="social_bot"
             )
             ai_content = model_response.get("content", "")
-            # 4. AI 응답도 메모리에 추가
             self.add_message_to_memory(stream_id, "ai", ai_content)
             return {
                 "status": "success",
                 "message": "Bot chat message generated successfully",
-                "data": {
-                    "content": ai_content
-                }
+                "data": { "content": ai_content }
             }
         except Exception as e:
             self.logger.error(f"Error generating bot chat message: {str(e)}")
-            # 5. 예외 발생 시 해당 stream_id의 메모리를 삭제
             self.delete_memory(stream_id)
             raise e
+
+    async def stream_bot_chat(self, request: BotChatsRequest):
+        """
+        [LEGACY] LLM 응답을 토큰/문장 단위로 스트리밍하는 async generator
+        """
+        # [FIX] chat_room_id -> stream_id
+        stream_id = request.stream_id
+        messages = request.messages
+        for msg in messages:
+            self.add_message_to_memory(stream_id, msg.role, msg.content)
+        recent_messages = self.get_recent_messages(stream_id)
+
+        if hasattr(self.model, "stream_response"):
+            async for token in self.model.stream_response(
+                messages=recent_messages, trace=None, adapter_type="social_bot"
+            ):
+                yield token
+        else:
+            model_response = self.model.get_response(
+                messages=recent_messages, trace=None, adapter_type="social_bot"
+            )
+            ai_content = model_response.get("content", "")
+            self.add_message_to_memory(stream_id, "ai", ai_content)
+            for sentence in ai_content.split(". "):
+                yield sentence.strip()
+
+    # ==================================================================================
+    # 현재 실제 API (POST /chat)에서 사용되는 핵심 함수
+    # ==================================================================================
+    async def process_chat_and_broadcast(self, request: BotChatQueueRequest):
+        """
+        채팅을 처리하고, 생성된 응답을 SSEManager를 통해 브로드캐스트
+        """
+        # [FIX] request 객체의 올바른 필드 사용
+        stream_id = request.stream_id
+        
+        try:
+            # [FIX] 'messages'가 아닌 'message' 필드 사용
+            self.add_message_to_memory(stream_id, "user", request.message)
+            recent_messages = self.get_recent_messages(stream_id)
+
+            model_response = self.model.get_response(
+                messages=recent_messages, trace=None, adapter_type="social_bot"
+            )
+            ai_content = model_response.get("content", "")
+
+            for token in ai_content.split():
+                stream_data = {
+                    "stream_id": stream_id,
+                    "message": token,
+                    "timestamp": datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+                }
+                await sse_manager.broadcast(f"event: stream\ndata: {json.dumps(stream_data, ensure_ascii=False)}\n\n")
+
+            self.add_message_to_memory(stream_id, "ai", ai_content)
+            
+            done_data = {
+                "stream_id": stream_id,
+                "message": None,
+                "timestamp": datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+            }
+            await sse_manager.broadcast(f"event: done\ndata: {json.dumps(done_data, ensure_ascii=False)}\n\n")
+
+        except Exception as e:
+            self.logger.error(f"Error processing chat for stream {stream_id}: {e}")
+            self.delete_memory(stream_id)
+            error_data = {
+                "stream_id": stream_id,
+                "message": str(e),
+                "timestamp": datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+            }
+            await sse_manager.broadcast(f"event: error\ndata: {json.dumps(error_data, ensure_ascii=False)}\n\n")

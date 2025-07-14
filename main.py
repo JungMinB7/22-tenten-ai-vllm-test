@@ -12,6 +12,8 @@ from models.model_loader import ModelLoader
 from api.endpoints.discord_webhook_router import router as discord_router ## for Discord Webhook
 from utils.logger_discord import setup_logging
 from utils.exception_handler import register_exception_handlers
+import json
+from datetime import datetime
 
 # CLI 인자 파싱 함수 추가
 def parse_args():
@@ -31,10 +33,11 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# === [수정] 서버 시작 시 ModelLoader를 FastAPI state에 싱글턴으로 등록 ===
-# 서버 실행 모드(LLM_MODE)는 CLI 인자에서 받아오므로, 아래는 임시 기본값
+# === [수정] 서버 시작 시 ModelLoader, SSEManager를 FastAPI state에 싱글턴으로 등록 ===
+from core.sse_manager import sse_manager
 llm_mode = os.environ.get("LLM_MODE", "colab")
 app.state.model = ModelLoader(mode=llm_mode)
+app.state.sse_manager = sse_manager
 # 이 코드는 서버 프로세스가 시작될 때 단 한 번만 실행되어,
 # app.state.model에 ModelLoader 인스턴스(즉, vLLM 모델)가 로드됩니다.
 # 이후 모든 요청에서 이 인스턴스를 재사용하므로, 매번 모델을 다시 로드하지 않습니다.
@@ -65,7 +68,8 @@ register_exception_handlers(app)
 app.include_router(youtube_router, prefix="/posts/youtube", tags=["youtube"])
 app.include_router(bot_post_router, prefix="/posts/bot", tags=["bot-posts"])
 app.include_router(bot_recomment_router, prefix="/recomments/bot", tags=["bot-recomments"])
-app.include_router(bot_chat_router, prefix="/chats/bot", tags=["bot-chats"])
+# [REFACTOR] API 명세에 맞게 prefix 제거, 태그 수정
+app.include_router(bot_chat_router, prefix="", tags=["Bot Chats (Streaming)"])
 app.include_router(discord_router, prefix="/error_log", tags=["discord-webhook"]) # Discord Webhook router
 
 # 서버 구동을 위한 설정

@@ -1,49 +1,66 @@
 from fastapi import APIRouter, Request
-from api.endpoints.controllers.bot_chats_controller import BotChatsController, BotChatsRequest
+from api.endpoints.controllers.bot_chats_controller import BotChatsController
 from fastapi.responses import StreamingResponse
 import asyncio
+from schemas.bot_chats_schema import BotChatQueueRequest, BotChatQueueSuccessResponse, BotChatQueueErrorResponse
+from fastapi import status
+from fastapi.responses import JSONResponse
+from fastapi import BackgroundTasks
+# [REFACTOR] SSEManager 싱글턴 인스턴스 직접 사용
+from core.sse_manager import sse_manager
+import json
+from datetime import datetime
 
 # APIRouter 인스턴스 생성
 router = APIRouter()
 
-# 엔드포인트 예시
-@router.post("")
-async def create_bot_chat(request: Request, body: BotChatsRequest):
+
+@router.get("/chat/stream")
+async def stream_chat(request: Request):
     """
-    소셜봇이 새로운 채팅 메시지를 생성하는 엔드포인트
+    서버 시작 시 AI 서버와 SSE 연결 수립
     """
-    # 요청마다 app 인스턴스를 controller에 전달해 싱글턴 모델을 사용
+    client_id = request.client.host
+    try:
+        queue = await sse_manager.connect(client_id)
+        
+        # 첫 연결 시 성공 메시지 전송
+        initial_data = {"message": "SSE연결 완료"}
+        await queue.put(f"data: {json.dumps(initial_data, ensure_ascii=False)}\n\n")
+
+        async def event_generator():
+            try:
+                while True:
+                    message = await queue.get()
+                    yield message
+            except asyncio.CancelledError:
+                sse_manager.disconnect(client_id)
+
+        return StreamingResponse(event_generator(), media_type="text/event-stream")
+    except Exception:
+        return JSONResponse(
+            status_code=500,
+            content={"message": "SSE연결 실패"}
+        )
+
+
+@router.post("/chat", response_model=BotChatQueueSuccessResponse)
+async def process_chat(request: Request, body: BotChatQueueRequest, background_tasks: BackgroundTasks):
+    """
+    사용자 채팅을 받아 처리를 시작하고, SSE 채널로 스트리밍 전송
+    """
     controller = BotChatsController(request.app)
-    return await controller.create_bot_chat(body)
+    # 실제 처리는 백그라운드에서 수행
+    background_tasks.add_task(controller.process_and_stream_chat, body)
+    return {"message": "Stream Queue등록 완료"}
 
-@router.get("/stream")
-async def stream_bot_chat(request: Request, chat_room_id: str):
-    """
-    SSE 기반 소셜봇 채팅 스트리밍 엔드포인트
-    - 클라이언트가 이 엔드포인트에 접속하면, AI 응답을 스트리밍 방식으로 전송
-    """
-    controller = BotChatsController(request.app)
 
-    async def event_generator():
-        # 실제로는 generate_bot_chat에서 스트리밍 토큰/문장 단위로 yield해야 함
-        # 여기서는 예시로 한 번에 전체 응답을 전송
-        body = type('obj', (object,), {"chat_room_id": chat_room_id, "messages": []})()  # 더미 메시지
-        result = await controller.create_bot_chat(body)
-        content = result["data"]["content"]
-        # 실제 구현에서는 content를 토큰/문장 단위로 쪼개서 yield
-        yield f"data: {content}\n\n"
-        # 스트리밍 종료 이벤트
-        yield "event: done\ndata: null\n\n"
-
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
-
-@router.delete("/stream/{streamId}")
-async def stop_stream(request: Request, streamId: str):
+@router.delete("/chat/stream/{streamId}")
+async def stop_stream_processing(request: Request, streamId: str):
     """
     스트리밍 종료 요청 엔드포인트
-    - streamId 기준으로 스트림/메모리/큐를 정리
     """
+    # TODO: streamId를 기준으로 실제 스트리밍 작업을 중단하는 로직 추가
     controller = BotChatsController(request.app)
-    # BotChatsService의 delete_memory 등 활용
     controller.service.delete_memory(streamId)
     return {"message": "Stream 종료 요청 수신 완료"}
