@@ -7,6 +7,7 @@ from langchain.memory import ConversationBufferMemory
 import json
 from datetime import datetime
 from core.sse_manager import sse_manager
+import asyncio # 테스트를 위한 asyncio 임포트
 
 class BotChatsService:
     def __init__(self, app):
@@ -41,7 +42,10 @@ class BotChatsService:
             content (str): 메시지 내용
         """
         memory = self.get_memory(stream_id)
-        memory.save_context({"role": role}, {"content": content})
+        if role == 'user':
+            memory.chat_memory.add_user_message(content)
+        elif role == 'ai':
+            memory.chat_memory.add_ai_message(content)
 
     def get_recent_messages(self, stream_id: str):
         """
@@ -64,66 +68,7 @@ class BotChatsService:
         if stream_id in self.memory_dict:
             del self.memory_dict[stream_id]
 
-    # ==================================================================================
-    # 아래의 generate_bot_chat, stream_bot_chat는 현재 API에서 사용되지 않는 레거시 함수일 수 있습니다.
-    # 하지만 명세 통일을 위해 chat_room_id -> stream_id로 수정합니다.
-    # ==================================================================================
-    async def generate_bot_chat(self, request: BotChatsRequest) -> BotChatsResponse:
-        """
-        [LEGACY] 소셜봇 채팅 메시지를 생성하는 서비스
-        """
-        # [FIX] chat_room_id -> stream_id
-        stream_id = request.stream_id 
-        try:
-            messages = request.messages
-            for msg in messages:
-                self.add_message_to_memory(stream_id, msg.role, msg.content)
-            recent_messages = self.get_recent_messages(stream_id)
-            model_response = self.model.get_response(
-                messages=recent_messages,
-                trace=None,
-                adapter_type="social_bot"
-            )
-            ai_content = model_response.get("content", "")
-            self.add_message_to_memory(stream_id, "ai", ai_content)
-            return {
-                "status": "success",
-                "message": "Bot chat message generated successfully",
-                "data": { "content": ai_content }
-            }
-        except Exception as e:
-            self.logger.error(f"Error generating bot chat message: {str(e)}")
-            self.delete_memory(stream_id)
-            raise e
 
-    async def stream_bot_chat(self, request: BotChatsRequest):
-        """
-        [LEGACY] LLM 응답을 토큰/문장 단위로 스트리밍하는 async generator
-        """
-        # [FIX] chat_room_id -> stream_id
-        stream_id = request.stream_id
-        messages = request.messages
-        for msg in messages:
-            self.add_message_to_memory(stream_id, msg.role, msg.content)
-        recent_messages = self.get_recent_messages(stream_id)
-
-        if hasattr(self.model, "stream_response"):
-            async for token in self.model.stream_response(
-                messages=recent_messages, trace=None, adapter_type="social_bot"
-            ):
-                yield token
-        else:
-            model_response = self.model.get_response(
-                messages=recent_messages, trace=None, adapter_type="social_bot"
-            )
-            ai_content = model_response.get("content", "")
-            self.add_message_to_memory(stream_id, "ai", ai_content)
-            for sentence in ai_content.split(". "):
-                yield sentence.strip()
-
-    # ==================================================================================
-    # 현재 실제 API (POST /chat)에서 사용되는 핵심 함수
-    # ==================================================================================
     async def process_chat_and_broadcast(self, request: BotChatQueueRequest):
         """
         채팅을 처리하고, 생성된 응답을 SSEManager를 통해 브로드캐스트
@@ -141,13 +86,19 @@ class BotChatsService:
             )
             ai_content = model_response.get("content", "")
 
-            for token in ai_content:
+            # [REFACTOR] 단어 단위 스트리밍으로 변경
+            for token in ai_content.split(' '):
+                # 단어가 비어있지 않은 경우에만 전송
+                if not token:
+                    continue
+                
                 stream_data = {
                     "stream_id": stream_id,
-                    "message": token,
+                    "message": token + " ", # 각 단어 뒤에 공백을 붙여서 전송
                     "timestamp": datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
                 }
                 await sse_manager.broadcast(f"event: stream\ndata: {json.dumps(stream_data, ensure_ascii=False)}\n\n")
+                # await asyncio.sleep(0.1) # [TEST] 스트리밍 효과를 확인하기 위한 0.1초 지연
 
             self.add_message_to_memory(stream_id, "ai", ai_content)
             
