@@ -4,27 +4,34 @@ from schemas.bot_chats_schema import BotChatsRequest, BotChatQueueRequest
 
 class BotChatsController:
     def __init__(self, app):
-        # FastAPI app 인스턴스를 받아 서비스에 전달
-        self.app = app
-        self.service = BotChatsService(app)
-
-    async def create_bot_chat(self, request: BotChatsRequest):
-        try:
-            # 서비스 계층 호출 (request 전체를 넘김)
-            result = await self.service.generate_bot_chat(request)
-            return result
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=str(e))
-
-    async def create_bot_chat_stream(self, request: BotChatsRequest):
         """
-        LLM 토큰/문장 단위 스트리밍 생성
+        컨트롤러 생성자.
+        [REFACTOR] 새로운 서비스 인스턴스를 생성하는 대신,
+        app.state에 저장된 공유 BotChatsService 인스턴스를 사용합니다.
         """
-        async for token in self.service.stream_bot_chat(request):
-            yield token
+        self.service: BotChatsService = app.state.bot_chats_service
+
+    # --- 아래는 현재 라우터에서 사용되지 않는 레거시 메서드입니다 ---
+    # async def create_bot_chat(self, request: BotChatsRequest):
+    #     try:
+    #         result = await self.service.generate_bot_chat(request)
+    #         return result
+    #     except Exception as e:
+    #         raise HTTPException(status_code=500, detail=str(e))
+
+    # async def create_bot_chat_stream(self, request: BotChatsRequest):
+    #     async for token in self.service.stream_bot_chat(request):
+    #         yield token
+    # ----------------------------------------------------------------
 
     async def process_and_stream_chat(self, request: BotChatQueueRequest):
         """
-        백그라운드에서 채팅을 처리하고, SSEManager를 통해 스트리밍 전송
+        공유 서비스의 채팅 처리 메서드를 호출합니다.
         """
         await self.service.process_chat_and_broadcast(request)
+
+    def delete_memory(self, stream_id: str):
+        """
+        공유 서비스의 메모리 삭제 메서드를 호출합니다.
+        """
+        self.service.delete_memory(stream_id)

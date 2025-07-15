@@ -1,15 +1,12 @@
-from fastapi import APIRouter, Request
-from api.endpoints.controllers.bot_chats_controller import BotChatsController
-from fastapi.responses import StreamingResponse
-import asyncio
-from schemas.bot_chats_schema import BotChatQueueRequest, BotChatQueueSuccessResponse, BotChatQueueErrorResponse
+from fastapi import APIRouter, Request, BackgroundTasks
+from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi import status
-from fastapi.responses import JSONResponse
-from fastapi import BackgroundTasks
-# [REFACTOR] SSEManager 싱글턴 인스턴스 직접 사용
+import asyncio
+from schemas.bot_chats_schema import BotChatQueueRequest
 from core.sse_manager import sse_manager
 import json
 from datetime import datetime
+from api.endpoints.controllers.bot_chats_controller import BotChatsController # 컨트롤러 임포트
 
 # APIRouter 인스턴스 생성
 router = APIRouter()
@@ -43,24 +40,29 @@ async def stream_chat(request: Request):
             content={"message": "SSE연결 실패"}
         )
 
-
-@router.post("/chat", response_model=BotChatQueueSuccessResponse)
-async def process_chat(request: Request, body: BotChatQueueRequest, background_tasks: BackgroundTasks):
+# [REFACTOR] 컨트롤러를 사용하도록 로직 복구
+@router.post("/chat", status_code=status.HTTP_202_ACCEPTED)
+async def stream_queue(
+    request: Request,
+    queue_request: BotChatQueueRequest,
+    background_tasks: BackgroundTasks,
+):
     """
-    사용자 채팅을 받아 처리를 시작하고, SSE 채널로 스트리밍 전송
+    채팅 메시지를 받아 컨트롤러를 통해 백그라운드 처리를 위해 큐에 등록
     """
     controller = BotChatsController(request.app)
-    # 실제 처리는 백그라운드에서 수행
-    background_tasks.add_task(controller.process_and_stream_chat, body)
+    background_tasks.add_task(controller.process_and_stream_chat, queue_request)
+
     return {"message": "Stream Queue등록 완료"}
 
 
 @router.delete("/chat/stream/{streamId}")
 async def stop_stream_processing(request: Request, streamId: str):
     """
-    스트리밍 종료 요청 엔드포인트
+    스트리밍 종료 및 메모리 삭제 요청 엔드포인트
     """
-    # TODO: streamId를 기준으로 실제 스트리밍 작업을 중단하는 로직 추가
     controller = BotChatsController(request.app)
-    controller.service.delete_memory(streamId)
-    return {"message": "Stream 종료 요청 수신 완료"}
+    controller.delete_memory(streamId)
+    
+    # TODO: streamId를 기준으로 실제 스트리밍 작업을 중단하는 로직 추가
+    return {"message": f"Stream({streamId}) 종료 및 메모리 삭제 완료"}

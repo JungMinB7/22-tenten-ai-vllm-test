@@ -16,6 +16,7 @@ import json
 from datetime import datetime
 from contextlib import asynccontextmanager
 from core.sse_manager import sse_manager
+from services.bot_chats_service import BotChatsService # BotChatsService 임포트
 
 # CLI 인자 파싱 함수 추가
 def parse_args():
@@ -32,11 +33,12 @@ def parse_args():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # 서버 시작 시 실행
-    print("서버 시작: 모델 및 SSEManager 로딩을 시작합니다.")
+    print("서버 시작: 모델, SSEManager, BotChatsService 로딩을 시작합니다.")
     llm_mode = os.environ.get("LLM_MODE", "colab")
     app.state.model = ModelLoader(mode=llm_mode)
     app.state.sse_manager = sse_manager
-    print("서버 시작: 모델 및 SSEManager 로딩 완료.")
+    app.state.bot_chats_service = BotChatsService(app) # BotChatsService 인스턴스 생성 및 상태 저장
+    print("서버 시작: 모델, SSEManager, BotChatsService 로딩 완료.")
     yield
     # 서버 종료 시 실행 (필요 시 리소스 정리)
     print("서버 종료.")
