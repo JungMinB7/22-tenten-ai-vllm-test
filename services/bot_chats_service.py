@@ -8,6 +8,7 @@ import json
 from datetime import datetime
 from core.sse_manager import sse_manager
 import asyncio # 테스트를 위한 asyncio 임포트
+from core.prompt_templates.bot_chats_prompt import BotChatsPrompt # 프롬프트 클라이언트 임포트
 
 class BotChatsService:
     def __init__(self, app):
@@ -15,11 +16,13 @@ class BotChatsService:
         BotChatsService 생성자
         - FastAPI app의 state에서 모델 싱글턴 인스턴스를 받아옴
         - stream_id별 대화 메모리(ConversationBufferMemory) 딕셔너리 초기화
+        - 채팅 프롬프트 클라이언트 초기화
         """
         self.logger = logging.getLogger(__name__)
         self.model = app.state.model
         self.memory_dict = {}  # key: stream_id, value: ConversationBufferMemory
         self.memory_k = 5  # 최근 5개 대화만 유지
+        self.prompt_client = BotChatsPrompt() # 프롬프트 클라이언트 인스턴스 생성
 
     def get_memory(self, stream_id: str):
         """
@@ -81,8 +84,11 @@ class BotChatsService:
             self.add_message_to_memory(stream_id, "user", request.message)
             recent_messages = self.get_recent_messages(stream_id)
 
+            # [REFACTOR] 페르소나 기반 시스템 프롬프트 주입
+            messages_with_persona = self.prompt_client.get_messages_with_persona(recent_messages)
+
             model_response = self.model.get_response(
-                messages=recent_messages, trace=None, adapter_type="social_bot"
+                messages=messages_with_persona, trace=None, adapter_type="social_bot"
             )
             ai_content = model_response.get("content", "")
 
