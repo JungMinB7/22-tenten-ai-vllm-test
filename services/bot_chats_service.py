@@ -3,7 +3,7 @@ import logging
 from schemas.bot_chats_schema import BotChatsRequest, BotChatsResponse, BotChatResponseData, UserInfoResponse, BotChatQueueRequest
 import os
 from models.model_loader import ModelLoader
-from langchain.memory import ConversationBufferMemory
+from langchain.memory import ConversationBufferWindowMemory # ConversationBufferWindowMemory로 변경
 import json
 from datetime import datetime
 from core.sse_manager import sse_manager
@@ -16,25 +16,26 @@ class BotChatsService:
         """
         BotChatsService 생성자
         - FastAPI app의 state에서 모델 싱글턴 인스턴스를 받아옴
-        - stream_id별 대화 메모리(ConversationBufferMemory) 딕셔너리 초기화
+        - stream_id별 대화 메모리(ConversationBufferWindowMemory) 딕셔너리 초기화
         - 채팅 프롬프트 클라이언트 초기화
         """
         self.logger = logging.getLogger(__name__)
         self.model = app.state.model
-        self.memory_dict = {}  # key: stream_id, value: ConversationBufferMemory
-        self.memory_k = 5  # 최근 5개 대화만 유지
+        self.memory_dict = {}  # key: stream_id, value: ConversationBufferWindowMemory
+        self.memory_k = 5  # 최근 5개 메시지만 유지
         self.prompt_client = BotChatsPrompt() # 프롬프트 클라이언트 인스턴스 생성
 
     def get_memory(self, stream_id: str):
         """
-        stream_id별 ConversationBufferMemory 인스턴스를 반환하거나 새로 생성
+        stream_id별 ConversationBufferWindowMemory 인스턴스를 반환하거나 새로 생성
         Args:
             stream_id (str): 대화 스트림 ID
         Returns:
-            ConversationBufferMemory: 해당 stream_id의 메모리 인스턴스
+            ConversationBufferWindowMemory: 해당 stream_id의 메모리 인스턴스
         """
         if stream_id not in self.memory_dict:
-            self.memory_dict[stream_id] = ConversationBufferMemory(k=self.memory_k, return_messages=True)
+            # ConversationBufferWindowMemory를 사용하도록 수정
+            self.memory_dict[stream_id] = ConversationBufferWindowMemory(k=self.memory_k, return_messages=True)
         return self.memory_dict[stream_id]
 
     def add_message_to_memory(self, stream_id: str, role: str, content: str):
@@ -53,14 +54,17 @@ class BotChatsService:
 
     def get_recent_messages(self, stream_id: str):
         """
-        stream_id별 최근 대화 기록(최대 5개)을 반환
+        stream_id별 최근 대화 기록(최대 k개)을 반환
         Returns:
             List[dict]: [{role, content}, ...]
         """
         memory = self.get_memory(stream_id)
+        # [FIX] memory.chat_memory.messages는 전체 대화 기록을 반환하므로,
+        # windowing이 적용된 memory.buffer_as_messages를 사용해야 함
+        retained_messages = memory.buffer_as_messages
         return [
             {"role": m.type, "content": m.content}
-            for m in memory.chat_memory.messages
+            for m in retained_messages
         ]
 
     def delete_memory(self, stream_id: str):
