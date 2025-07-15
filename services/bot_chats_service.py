@@ -9,6 +9,7 @@ from datetime import datetime
 from core.sse_manager import sse_manager
 import asyncio # 테스트를 위한 asyncio 임포트
 from core.prompt_templates.bot_chats_prompt import BotChatsPrompt # 프롬프트 클라이언트 임포트
+from utils.logger import log_inference_to_langfuse # 로거 임포트
 
 class BotChatsService:
     def __init__(self, app):
@@ -76,23 +77,54 @@ class BotChatsService:
         """
         채팅을 처리하고, 생성된 응답을 SSEManager를 통해 브로드캐스트
         """
-        # [FIX] request 객체의 올바른 필드 사용
         stream_id = request.stream_id
         
         try:
-            # [FIX] 'messages'가 아닌 'message' 필드 사용
             self.add_message_to_memory(stream_id, "user", request.message)
             recent_messages = self.get_recent_messages(stream_id)
-
-            # [REFACTOR] 페르소나 기반 시스템 프롬프트 주입
             messages_with_persona = self.prompt_client.get_messages_with_persona(recent_messages)
 
+            # [REFACTOR] Langfuse 트레이스를 프롬프트 생성 이후로 이동하고, input에 전체 대화 기록을 추가
+            trace = self.prompt_client.langfuse.trace(
+                name="bot_chats_streaming_flow",
+                metadata={
+                    "stream_id": stream_id,
+                    "user_id": request.user_id,
+                    "nickname": request.nickname
+                },
+                input=recent_messages, # recent_messages를 input으로 기록
+                environment=os.environ.get("LLM_MODE", "colab")
+            )
+
+            # Generation 시작 시간 기록
+            start_time = datetime.now()
+            
             model_response = self.model.get_response(
-                messages=messages_with_persona, trace=None, adapter_type="social_bot"
+                messages=messages_with_persona, 
+                trace=trace, # model_loader.get_response 시그니처에 맞게 trace 전달
+                adapter_type="social_bot"
             )
             ai_content = model_response.get("content", "")
 
-            # [REFACTOR] 단어 단위 스트리밍으로 변경
+            # Langfuse에 Generation 상세 정보 기록
+            log_inference_to_langfuse(
+                trace=trace,
+                name="bot_chat_generation",
+                prompt=self.prompt_client.langfuse.get_prompt("chats_bot"),
+                messages=messages_with_persona,
+                content=ai_content,
+                model_name=self.model.loader.model_path,
+                model_parameters={
+                    "temperature": self.model.loader.temperature,
+                    "top_p": self.model.loader.top_p,
+                    "max_tokens": self.model.loader.max_tokens,
+                },
+                start_time=start_time,
+                end_time=datetime.now(),
+                inference_time=(datetime.now() - start_time).total_seconds()
+            )
+
+            # 단어 단위 스트리밍으로 변경
             for token in ai_content.split(' '):
                 # 단어가 비어있지 않은 경우에만 전송
                 if not token:
@@ -115,6 +147,9 @@ class BotChatsService:
             }
             await sse_manager.broadcast(f"event: done\ndata: {json.dumps(done_data, ensure_ascii=False)}\n\n")
 
+            # Langfuse 트레이스 업데이트 (성공)
+            trace.update(output={"full_response": ai_content, "status": "success"})
+
         except Exception as e:
             self.logger.error(f"Error processing chat for stream {stream_id}: {e}")
             self.delete_memory(stream_id)
@@ -124,3 +159,7 @@ class BotChatsService:
                 "timestamp": datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
             }
             await sse_manager.broadcast(f"event: error\ndata: {json.dumps(error_data, ensure_ascii=False)}\n\n")
+            
+            # Langfuse 트레이스 업데이트 (실패)
+            if 'trace' in locals():
+                trace.update(output={"error": str(e), "status": "error"})
