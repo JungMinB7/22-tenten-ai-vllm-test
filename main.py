@@ -1,5 +1,10 @@
 import argparse
 import os
+from dotenv import load_dotenv # dotenv 임포트
+
+# [FIX] 애플리케이션 시작 시점에 환경 변수를 가장 먼저 로드
+load_dotenv(override=True)
+
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware

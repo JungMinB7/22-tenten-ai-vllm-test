@@ -56,14 +56,15 @@ class BotChatsService:
         """
         stream_id별 최근 대화 기록(최대 k개)을 반환
         Returns:
-            List[dict]: [{role, content}, ...]
+            List[dict]: [{"role": ..., "content": ...}]
         """
         memory = self.get_memory(stream_id)
-        # [FIX] memory.chat_memory.messages는 전체 대화 기록을 반환하므로,
-        # windowing이 적용된 memory.buffer_as_messages를 사용해야 함
         retained_messages = memory.buffer_as_messages
+
+        # [REFACTOR] Langchain의 role(human, ai)을 모델 표준(user, assistant)으로 변환
+        role_map = {"human": "user", "ai": "assistant"}
         return [
-            {"role": m.type, "content": m.content}
+            {"role": role_map.get(m.type, m.type), "content": m.content}
             for m in retained_messages
         ]
 
@@ -84,7 +85,10 @@ class BotChatsService:
         stream_id = request.stream_id
         
         try:
-            self.add_message_to_memory(stream_id, "user", request.message)
+            # [REFACTOR] User 메시지 형식을 다른 기능과 통일
+            user_message_content = f"[{request.nickname} from {request.class_name}] {request.message}"
+            self.add_message_to_memory(stream_id, "user", user_message_content)
+
             recent_messages = self.get_recent_messages(stream_id)
             messages_with_persona = self.prompt_client.get_messages_with_persona(recent_messages)
 
