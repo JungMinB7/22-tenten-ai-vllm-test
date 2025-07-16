@@ -23,17 +23,17 @@ pip install -r requirements.txt
 ## 실행
 ### gcp
 ```bash
-python main.py mode --gcp-prod
+python main.py --mode gcp-prod
 ```
 ```bash
-python main.py mode --gcp-dev
+python main.py --mode gcp-dev
 ```
 ### api(gemini)
 ```bash
-python main.py mode --api-prod
+python main.py --mode api-prod
 ```
 ```bash
-python main.py mode --api-dev
+python main.py --mode api-dev
 ```
 ### local
 ```bash
