@@ -8,7 +8,7 @@ from pathlib import Path
 
 class BotPostsPrompt:
     def __init__(self):
-        if os.environ.get("LLM_MODE") == "api-prod":
+        if os.environ.get("LLM_MODE") == "api-prod" or os.environ.get("LLM_MODE") == "gcp-prod":
             load_dotenv(dotenv_path='/secrets/env')
         else:
             load_dotenv(override=True)
