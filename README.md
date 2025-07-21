@@ -1,5 +1,37 @@
 # 22-tenten-ai
 
+## python 3.11.12 변경 (pyenv 다운)
+1. python, pip 설치
+```bash
+sudo apt update
+sudo apt install python3
+sudo apt install python3-pip
+```
+2. 필요한 패키지 설치
+```bash
+sudo apt update
+sudo apt install -y make build-essential libssl-dev zlib1g-dev \
+  libbz2-dev libreadline-dev libsqlite3-dev curl llvm \
+  libncursesw5-dev xz-utils tk-dev libxml2-dev libxmlsec1-dev libffi-dev liblzma-dev
+```
+3. pyenv 설치
+```bash
+curl https://pyenv.run | bash
+```
+4. 셸 설정 파일 수정 (bash 기준)
+```bash
+echo 'export PYENV_ROOT="$HOME/.pyenv"' >> ~/.bashrc
+echo 'export PATH="$PYENV_ROOT/bin:$PATH"' >> ~/.bashrc
+echo 'eval "$(pyenv init --path)"' >> ~/.bashrc
+echo 'eval "$(pyenv init -)"' >> ~/.bashrc
+source ~/.bashrc
+```
+5. 원하는 버전 설치
+```bash
+pyenv install 3.12.3
+pyenv global 3.12.3
+```
+
 ## GCP 서버 이사갔을때 main.py 정상 작동 시키기
 1. git clone
 2. 가상환경 설정
