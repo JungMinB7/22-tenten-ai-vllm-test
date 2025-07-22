@@ -29,12 +29,13 @@ jobs:
             source .venv/bin/activate
             pip install -r requirements-gcp.txt
             nohup python main.py --mode gcp-prod >> ~/log-prod-test.log 2>&1 &
+            sleep 15
 
       - name: Simple health check (run server briefly)
         run: |
             echo "⏳ Waiting for FastAPI to become ready..."
             for i in {1..30}; do
-            if curl --fail http://localhost:8000/docs; then
+            if curl --fail http://${{ secrets.GCP_VM_PROD_IP }}:8000/docs; then
                 echo "✅ FastAPI is live"
                 exit 0
             fi
