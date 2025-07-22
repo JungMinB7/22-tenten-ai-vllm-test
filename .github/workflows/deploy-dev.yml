@@ -1,0 +1,41 @@
+name: FastAPI CD Pipeline
+
+on:
+  push:
+    branches:
+      - develop
+
+jobs:
+  ci:
+    name: Code Lint & Install requirements
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11.12'
+
+      - name: Install dependencies
+        run: pip install -r requirements-gcp.txt
+
+      - name: Lint with pylint
+        run: pylint main.py
+
+      - name: ✅ Notify Discord (CI Passed)
+        if: success()
+        uses: Ilshidur/action-discord@master
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          message: "✅ CI 성공! `${{ github.ref_name }}` 브랜치에 커밋됨."
+
+      - name: ❌ Notify Discord (CI Failed)
+        if: failure()
+        uses: Ilshidur/action-discord@master
+        with:
+          webhook: ${{ secrets.DISCORD_WEBHOOK }}
+          message: "❌ CI 실패! `${{ github.ref_name }}` 브랜치 확인 필요."
