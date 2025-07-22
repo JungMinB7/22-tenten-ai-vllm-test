@@ -10,35 +10,45 @@ on:
 
 jobs:
   ci:
-    name: Code Lint & Install requirements
+    name: CI Lint, Type, Security
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11.12'
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11.12'
 
-      - name: Install dependencies
-        run: pip install -r requirements-gcp.txt
+    - name: Install dependencies
+      run: |
+        pip install -r requirements-gcp.txt
+        pip install flake8 mypy bandit # (추후 pytest pytest-cov coverage 도 여기 추가)
 
-      - name: Lint with pylint
-        run: pylint main.py
+    - name: Lint with flake8
+      run: flake8 main.py
 
-      - name: ✅ Notify Discord (CI Passed)
-        if: success()
-        uses: Ilshidur/action-discord@master
-        with:
-          webhook: ${{ secrets.DISCORD_WEBHOOK }}
-          message: "✅ CI 성공! `${{ github.ref_name }}` 브랜치에 커밋됨."
+    - name: Type check with mypy
+      run: mypy main.py
 
-      - name: ❌ Notify Discord (CI Failed)
-        if: failure()
-        uses: Ilshidur/action-discord@master
-        with:
-          webhook: ${{ secrets.DISCORD_WEBHOOK }}
-          message: "❌ CI 실패! `${{ github.ref_name }}` 브랜치 확인 필요."
+    - name: Security check with bandit
+      run: bandit -r . -x .venv
+
+    - name: ✅ Notify Discord (CI Passed)
+      if: success()
+      run: |
+        curl -H "Content-Type: application/json" \
+             -X POST \
+             -d "{\"content\": \"✅ CI 성공! 브랜치: \`${{ github.ref_name }}\`\"}" \
+             ${{ secrets.DISCORD_WEBHOOK }}
+
+    - name: ❌ Notify Discord (CI Failed)
+      if: failure()
+      run: |
+        curl -H "Content-Type: application/json" \
+            -X POST \
+            -d "{\"content\": \"❌ CI 실패! 브랜치: \`${{ github.ref_name }}\`\"}" \
+            ${{ secrets.DISCORD_WEBHOOK }}
