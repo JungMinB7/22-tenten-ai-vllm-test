@@ -1,10 +1,6 @@
 name: FastAPI CI/CD Pipeline
 
 on:
-  pull_request:
-    branches:
-      - main
-
   push:
     branches:
       - main
@@ -24,19 +20,6 @@ jobs:
           key: ${{ secrets.GCP_SSH_PRIVATE_KEY }}
           script: |
             bash ~/start_server.sh 
-
-      - name: Simple health check (run server briefly)
-        run: |
-            echo "⏳ Waiting for FastAPI to become ready..."
-            for i in {1..30}; do
-            if curl --fail http://${{ secrets.GCP_VM_PROD_IP }}:8000/docs; then
-                echo "✅ FastAPI is live"
-                exit 0
-            fi
-            sleep 10
-            done
-            echo "❌ FastAPI health check failed"
-            exit 1     
 
       - name: ✅ Notify Discord
         run: |
