@@ -23,13 +23,7 @@ jobs:
           username: ${{ secrets.GCP_VM_USER }}
           key: ${{ secrets.GCP_SSH_PRIVATE_KEY }}
           script: |
-            pkill -f "python main.py --mode gcp-prod" || true
-            cd ~/22-tenten-ai
-            git pull origin ${{ github.ref_name }}
-            source .venv/bin/activate
-            pip install -r requirements-gcp.txt
-            nohup python main.py --mode gcp-prod >> ~/log-prod-test.log 2>&1 &
-            sleep 15
+            bash ~/start_server.sh 
 
       - name: Simple health check (run server briefly)
         run: |
