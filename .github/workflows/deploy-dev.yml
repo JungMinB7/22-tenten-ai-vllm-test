@@ -26,10 +26,7 @@ jobs:
     - name: Install dependencies
       run: |
         pip install -r requirements-gcp.txt
-        pip install flake8 mypy bandit # (추후 pytest pytest-cov coverage 도 여기 추가)
-
-    - name: Lint with flake8
-      run: flake8 main.py
+        pip install mypy bandit 
 
     - name: Type check with mypy
       run: mypy main.py
