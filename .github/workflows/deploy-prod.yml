@@ -1,0 +1,51 @@
+name: FastAPI CI/CD Pipeline
+
+on:
+  pull_request:
+    branches:
+      - main
+
+  push:
+    branches:
+      - main
+
+jobs: 
+  cd:
+    name: 🚀 Deploy to GCP (SSH)
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy via SSH to GCP
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.GCP_VM_PROD_IP }}
+          username: ${{ secrets.GCP_VM_USER }}
+          key: ${{ secrets.GCP_SSH_PRIVATE_KEY }}
+          script: |
+            pkill -f "python main.py --mode gcp-prod" || true
+            cd ~/22-tenten-ai
+            git pull origin ${{ github.ref_name }}
+            source .venv/bin/activate
+            pip install -r requirements-gcp.txt
+            nohup python main.py --mode gcp-prod >> ~/log-prod-test.log 2>&1 &
+
+      - name: Simple health check (run server briefly)
+        run: |
+            echo "⏳ Waiting for FastAPI to become ready..."
+            for i in {1..30}; do
+            if curl --fail http://localhost:8000/docs; then
+                echo "✅ FastAPI is live"
+                exit 0
+            fi
+            sleep 10
+            done
+            echo "❌ FastAPI health check failed"
+            exit 1     
+
+      - name: ✅ Notify Discord
+        run: |
+          curl -H "Content-Type: application/json" \
+              -X POST \
+              -d "{\"content\": \"✅  CD 완료 브랜치: \`${{ github.ref_name }}\`\"}" \
+              ${{ secrets.DISCORD_WEBHOOK }}

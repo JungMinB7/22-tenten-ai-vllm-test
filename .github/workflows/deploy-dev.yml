@@ -1,0 +1,51 @@
+name: FastAPI CD Pipeline
+
+on:
+  pull_request:
+    branches:
+      - develop
+  push:
+    branches:
+      - develop
+
+jobs:
+  ci:
+    name: CI Lint, Type, Security
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11.12'
+
+    - name: Install dependencies
+      run: |
+        pip install -r requirements-gcp.txt
+        pip install mypy bandit 
+
+    - name: Type check with mypy
+      run: mypy main.py
+
+    - name: Security check with bandit
+      run: bandit -r . -x .venv
+
+    - name: ✅ Notify Discord (CI Passed)
+      if: success()
+      run: |
+        curl -H "Content-Type: application/json" \
+             -X POST \
+             -d "{\"content\": \"✅ CI 성공! 브랜치: \`${{ github.ref_name }}\`\"}" \
+             ${{ secrets.DISCORD_WEBHOOK }}
+
+    - name: ❌ Notify Discord (CI Failed)
+      if: failure()
+      run: |
+        curl -H "Content-Type: application/json" \
+            -X POST \
+            -d "{\"content\": \"❌ CI 실패! 브랜치: \`${{ github.ref_name }}\`\"}" \
+            ${{ secrets.DISCORD_WEBHOOK }}
